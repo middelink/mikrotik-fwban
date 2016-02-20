@@ -1,0 +1,14 @@
+[Unit]
+Description=A failban on steroids, managing a Mikrotik banlist
+After=network.target
+
+[Service]
+Type=simple
+User=root
+LimitNOFILE=16000
+Restart=always
+RestartSec=5
+ExecStart=/usr/local/sbin/mikrotik-fwban
+
+[Install]
+WantedBy=multi-user.target
