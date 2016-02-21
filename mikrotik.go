@@ -58,6 +58,10 @@ func parseCIDR(s string) *net.IPNet {
 	return &net.IPNet{IP: ip.Mask(m), Mask: m}
 }
 
+// BlackIP is a structure holding a single IP (Prefix really). It contains
+// a timeout value, where IsZero means it has no timeout, aka a permanent
+// entry. ID is used to store the row identifier Mikrotik gives us when
+// reading the IP. It will contain ".gcfg" for config based entries.
 type BlackIP struct {
 	Net  net.IPNet
 	Dead time.Time
@@ -76,6 +80,9 @@ func (a ByAge) Len() int           { return len(a) }
 func (a ByAge) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByAge) Less(i, j int) bool { return a[i].Dead.Before(a[j].Dead) }
 
+// Mikrotik contains the internal state of a Mikrotik object, configuration
+// details but also the API connection to the Mikrotik. It acts as a cache
+// between the rest of the program and the Mikrotik.
 type Mikrotik struct {
 	client *ros.Client
 
@@ -94,6 +101,7 @@ type Mikrotik struct {
 	whitelist []BlackIP
 }
 
+// NewMikrotik returns an initialized Mikrotik object.
 func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 	if *debug {
 		log.Printf("NewMikrotik(name=%s, %#v)\n", name, c)
@@ -220,52 +228,52 @@ addresslist:
 		}
 	}
 
-	// Start a go function to monitor the dynlist for entries to delete.
-	// From now on we need locking if we mess with the dynlist.
-	go func(mt *Mikrotik) {
-		if !cfg.Settings.AutoDelete {
-			return
-		}
-		var oldest time.Time
-		var oldestEntry *BlackIP
-		for {
-			mt.RLock()
-			if len(mt.dynlist) != 0 {
-				oldest = mt.dynlist[0].Dead
-				oldestEntry = &mt.dynlist[0]
-			} else {
-				if cfg.Settings.Verbose {
-					log.Printf("%s: No dynlist entries found to expire, retry in an hour", mt.Name)
+	if cfg.Settings.AutoDelete {
+		// Start a go function to monitor the dynlist for entries to delete.
+		// It effectively implements a priority queue on the Dead time.
+		// From now on we need locking if we mess with the dynlist.
+		go func(mt *Mikrotik) {
+			var oldest time.Time
+			var oldestEntry *BlackIP
+			for {
+				mt.RLock()
+				if len(mt.dynlist) != 0 {
+					oldest = mt.dynlist[0].Dead
+					oldestEntry = &mt.dynlist[0]
+				} else {
+					if cfg.Settings.Verbose {
+						log.Printf("%s: No dynlist entries found to expire, retry in an hour", mt.Name)
+					}
+					oldest = time.Now().Add(time.Hour)
+					oldestEntry = nil
 				}
-				oldest = time.Now().Add(time.Hour)
-				oldestEntry = nil
-			}
-			mt.RUnlock()
-			if *debug {
-				log.Printf("%s: next event: %v", mt.Name, oldest)
-			}
-			select {
-			case <-mt.hasData:
+				mt.RUnlock()
 				if *debug {
-					log.Printf("%s: Received indication new data is here", mt.Name)
+					log.Printf("%s: next event: %v", mt.Name, oldest)
 				}
-				break
-			case <-time.After(oldest.Sub(time.Now())):
-				if oldestEntry != nil {
+				select {
+				case <-mt.hasData:
 					if *debug {
-						log.Printf("%s: Deleting old dynlist entry", mt.Name)
+						log.Printf("%s: Received indication new data is here", mt.Name)
 					}
-					err = mt.DelIP(*oldestEntry)
-					if err != nil {
-						log.Fatalln(mt.Name, err)
+					break
+				case <-time.After(oldest.Sub(time.Now())):
+					if oldestEntry != nil {
+						if *debug {
+							log.Printf("%s: Deleting old dynlist entry", mt.Name)
+						}
+						err = mt.DelIP(*oldestEntry)
+						if err != nil {
+							log.Fatalln(mt.Name, err)
+						}
+						mt.Lock()
+						mt.dynlist = mt.dynlist[1:]
+						mt.Unlock()
 					}
-					mt.Lock()
-					mt.dynlist = mt.dynlist[1:]
-					mt.Unlock()
 				}
 			}
-		}
-	}(mt)
+		}(mt)
+	}
 	return mt, nil
 }
 
@@ -344,6 +352,7 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 	return ips
 }
 
+// DelIP removed an ip address from the Mikrotik.
 func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: DelIP(%s)", mt.Name, ip.String())
@@ -362,6 +371,13 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	return nil
 }
 
+// AddIP will add the given ip address to the Mikrotik, when duration is 0,
+// the entry is seen as permanent and the white and blacklist are not checked
+// for duplicates. Conflicts on those lists are checked when the configuration
+// is read. It protects against double adding, as that will make the Mikrotik
+// spit out an error which in the current implementation leads to a program
+// restart. For all timeouts != 0, the index returned over the Mikrotik
+// connection is stored, together with the IP itself, in the dynlist entry.
 func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: AddIP(%s/%v)", mt.Name, ip.String(), duration)
@@ -430,10 +446,12 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration) error {
 	return nil
 }
 
+// Close closes the session with the mikrotik.
 func (mt *Mikrotik) Close() {
 	mt.client.Close()
 }
 
+// GetIPs returns the current list of blacklisted IPs.
 func (mt *Mikrotik) GetIPs() (r []BlackIP) {
 	return mt.dynlist
 }

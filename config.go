@@ -12,6 +12,9 @@ import (
 	"gopkg.in/gcfg.v1"
 )
 
+// ConfigMikrotik is the internal representation of a Mikrotik object,
+// initialized from the configfile.
+// Note that missing elements are inititalized to a sensible default.
 type ConfigMikrotik struct {
 	Disabled  bool
 	Address   string
@@ -22,6 +25,9 @@ type ConfigMikrotik struct {
 	Blacklist []string
 }
 
+// Config is the internal representation of the config file, read during
+// startup of the program.
+// Note that missing elements are inititalized to a sensible default.
 type Config struct {
 	Settings struct {
 		BlockTime  Duration

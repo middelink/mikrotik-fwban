@@ -1,3 +1,18 @@
+// Copyright 2016 Pauline Middelink. All rights reserved.
+// Use of this source code is governed by a Apache 2.0 license that can be
+// found in the LICENSE file.
+
+// Command mikrotik-fwban acts as a syslog receiver and tries to extract an
+// IP address out of the messages received. It then adds the IPs to the
+// banlist on the configured Mikrotiks. In essence it is a Fail2Ban done the
+// lazy way. Since it leverages the filtering mechanisms of rsyslog to do the
+// pre-filtering, it should be able to handle large sets of publicly
+// accessable machines (famous last words, I know).
+//
+// It handles both IPv4 and IPv6 addresses and banlists.
+//
+// It can handle multiple Mikrotiks, keeping the banned IPs in their
+// respective banlists in sync.
 package main
 
 import (
