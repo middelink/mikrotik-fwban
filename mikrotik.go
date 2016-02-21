@@ -61,11 +61,11 @@ func parseCIDR(s string) *net.IPNet {
 type BlackIP struct {
 	Net  net.IPNet
 	Dead time.Time
-	Id   string
+	ID   string
 }
 
 func (b BlackIP) String() string {
-	return fmt.Sprintf("{%s, %q, %q}", b.Net.String(), b.Dead, b.Id)
+	return fmt.Sprintf("{%s, %q, %q}", b.Net.String(), b.Dead, b.ID)
 }
 
 // ByAge implements sort.Interface for []Person based on
@@ -348,7 +348,7 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: DelIP(%s)", mt.Name, ip.String())
 	}
-	args := []ros.Pair{{".id", ip.Id, ""}}
+	args := []ros.Pair{{".id", ip.ID, ""}}
 	var err error
 	if ip.Net.IP.To4() != nil {
 		_, err = mt.client.Call("/ip/firewall/address-list/remove", args)
