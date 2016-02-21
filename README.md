@@ -42,26 +42,28 @@ and start this daemon at startup.
 
 ### Setup your system.
 
-* Copy mikrotik.gcfg to /etc/mikrotik-fwban.cfg and edit to your liking.
-* Copy mikrotik-fwban.service to /etc/systemd/system
+* Copy mikrotik-fwban.cfg to /etc/ and edit to your liking.
+* Copy mikrotik-fwban.service to /etc/systemd/system/
 * Execute `systemctl daemon-reload`.
 * Execute `systemctl enable mikrotik-fwban` to enable the daemon at startup.
 * Execute `systemctl start mikrotik-fwban` to start the daemon right now.
 * Check your /var/log/messages for possible errors and fix them.
-* (If you want to receive off machine, don't forget to open your firewall
-  on the configured port.)
+* (If you want to receive syslog messages from other than the local machine,
+  don't forget to open your firewall on the configured port.)
 
 ### Sending syslog information its way.
 
 * Add a snippet to /etc/rsyslog.d to (re)send interesting messages to the
   mikrotik port, best thing is to filter on error conditions containing an
   IP you want to block. Example below:
+
   ```
   if re_match($msg, "failed for '[0-9a-f:.]*' - Wrong password") then
 	action(type="omfwd" target="<mikrotik-fwban-ip>" port="<mikrotik-fwban-port>" template="RSYSLOG_SyslogProtocol23Format")
   ```
+* Restart your rsyslogd to make sure it loaded the fragment.
 * You can do this on every Unix system in your network if you feel so
-  inclined. Again, don't forget to open the firewall on the Mikroik-FW's
+  inclined. Again, don't forget to open the firewall on the Mikrotik-fwban's
   host if you do.
 
 ## Credits
