@@ -41,9 +41,9 @@ type Config struct {
 var (
 	progname = path.Base(os.Args[0])
 
-	cleartime  = flag.Duration("cleartime", 7*24*time.Hour, "Set the live time for dynamicly managed entries.")
+	blocktime  = flag.Duration("blocktime", 7*24*time.Hour, "Set the life time for dynamically managed entries.")
 	filename   = flag.String("filename", "/etc/mikrotik-fwban.cfg", "Path of the configuration file to read.")
-	syslogport = flag.Uint("syslogport", 10514, "UDP port we listen on for syslog formatted messages.")
+	port       = flag.Uint("port", 10514, "UDP port we listen on for syslog formatted messages.")
 	autodelete = flag.Bool("autodelete", true, "Autodelete entries when they expire. Aka, don't trust Mikrotik to do it for us.")
 	verbose    = flag.Bool("verbose", false, "Be more verbose in our logging.")
 	debug      = flag.Bool("debug", false, "Be absolutely staggering in our logging.")
@@ -69,8 +69,8 @@ func configParse() {
 		log.Fatal(err)
 	}
 	// Flags override the config file
-	if hasFlag("cleartime") {
-		cfg.Settings.BlockTime = Duration(*cleartime)
+	if hasFlag("blocktime") {
+		cfg.Settings.BlockTime = Duration(*blocktime)
 	}
 	if hasFlag("activedelete") {
 		cfg.Settings.AutoDelete = *autodelete
@@ -78,8 +78,8 @@ func configParse() {
 	if hasFlag("verbose") {
 		cfg.Settings.Verbose = *verbose
 	}
-	if hasFlag("syslogport") {
-		cfg.Settings.Port = uint16(*syslogport)
+	if hasFlag("port") {
+		cfg.Settings.Port = uint16(*port)
 	}
 	if cfg.Settings.BlockTime == 0 {
 		log.Fatal("Blocktime needs to be non-zero.")

@@ -18,6 +18,29 @@
 Seems kind of self explanatory so I'm not going to explain every item
 in it.
 
+Remember you can use the same configurations in the central settings
+as in the Command Line.
+
+It is possible to administer more than one Mikrotik by using separate
+sections for each one. Perfect if you want to manage all Mikrotiks
+for your family, remote office locations or customers. You can still
+use different permanent whitelists and blacklists for each Mikrotik.
+
+## Command Line Flags
+
+* --blocktime: Set the life time for dynamically managed entries.
+  The MikroTik will be told to remove the entry from the
+  blacklist after this many hours. If autodelete is true
+  mikrotik-fwban will take care of the deletion. Default is 
+* --filename: Path of the configuration file to read. Default is
+  /etc/mikrotik-fwban.cfg.
+* --port: UDP port we listen on for syslog formatted messages.
+  Default is 10514.
+* --autodelete: Autodelete entries when they expire. Aka, don't trust
+  Mikrotik to do it for us. Default is one week.
+* --verbose: Be more verbose in our logging. Default is false.
+* --debug: Be absolutely staggering in our logging. Default is false.
+
 ## Installation
 
 I presume you have a working experiance with go, a system with systemd
@@ -61,6 +84,10 @@ and start this daemon at startup.
   if re_match($msg, "failed for '[0-9a-f:.]*' - Wrong password") then
 	action(type="omfwd" target="<mikrotik-fwban-ip>" port="<mikrotik-fwban-port>" template="RSYSLOG_SyslogProtocol23Format")
   ```
+
+  Remember to put in the target IP address and port of your Mikrotik-fwban's
+  host.
+
 * Restart your rsyslogd to make sure it loaded the fragment.
 * You can do this on every Unix system in your network if you feel so
   inclined. Again, don't forget to open the firewall on the Mikrotik-fwban's
