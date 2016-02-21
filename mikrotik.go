@@ -241,7 +241,7 @@ addresslist:
 					oldest = mt.dynlist[0].Dead
 					oldestEntry = &mt.dynlist[0]
 				} else {
-					if cfg.Settings.Verbose {
+					if *debug {
 						log.Printf("%s: No dynlist entries found to expire, retry in an hour", mt.Name)
 					}
 					oldest = time.Now().Add(time.Hour)
