@@ -125,7 +125,7 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 	for _, v := range c.Whitelist {
 		if strings.HasPrefix(v, "@") {
 			if v[1:] == mt.banlist {
-				log.Printf("%s: Skipping the managed blacklist", mt.Name, v)
+				log.Printf("%s: Skipping the managed blacklist %s", mt.Name, v)
 			} else {
 				mt.whitelist = append(mt.whitelist, mt.getAddresslist(v[1:])...)
 			}
@@ -141,7 +141,7 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 	for _, v := range c.Blacklist {
 		if strings.HasPrefix(v, "@") {
 			if v[1:] == mt.banlist {
-				log.Printf("%s: Skipping the managed blacklist", mt.Name, v)
+				log.Printf("%s: Skipping the managed blacklist %s", mt.Name, v)
 			} else {
 				mt.blacklist = append(mt.blacklist, mt.getAddresslist(v[1:])...)
 			}
