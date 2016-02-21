@@ -1,11 +1,14 @@
 # Mikrotik-fwban
 
-* Mikrotik-fwban acts as a syslog receiver and tries to extract an IP address
-  out of messages received. It then adds the IPs to the banlist on the
-  configured Mikrotiks. In essence it is a Fail2Ban done the lazy way.
-  It leverages the filtering mechanisms of rsyslog to do the pre-filtering
-  so even if you have a large set of publicly accessable machines, it
-  should be able to handle them (famous last words, I know).
+[![Build Status](https://travis-ci.org/middelink/mikrotik-fwban.svg?branch=master)](https://travis-ci.org/middelink/mikrotik-fwban)
+[![GoDoc](https://godoc.org/github.com/middelink/mikrotik-fwban?status.svg)](https://godoc.org/github.com/middelink/mikrotik-fwban)
+
+* Command mikrotik-fwban acts as a syslog receiver and tries to extract an
+  IP address out of the messages received. It then adds the IPs to the
+  banlist on the configured Mikrotiks. In essence it is a Fail2Ban done the
+  lazy way. Since it leverages the filtering mechanisms of rsyslog to do the
+  pre-filtering, it should be able to handle large sets of publicly
+  accessable machines (famous last words, I know).
 * It handles both IPv4 and IPv6 addresses and banlists.
 * It can handle multiple Mikrotiks, keeping the banned IPs in their
   respective banlists in sync.
@@ -67,3 +70,4 @@ Mikrotik-fwban uses
 [go-gcfg](https://github.com/go-gcfg/gcfg/tree/v1),
 [syslogparser](github.com/jeromer/syslogparser),
 [routeros-api-go](https://github.com/Netwurx/routeros-api-go)
+
