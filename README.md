@@ -28,18 +28,18 @@ use different permanent whitelists and blacklists for each Mikrotik.
 
 ## Command Line Flags
 
-* --blocktime: Set the life time for dynamically managed entries.
-  The MikroTik will be told to remove the entry from the
-  blacklist after this many hours. If autodelete is true
-  mikrotik-fwban will take care of the deletion. Default is 
-* --filename: Path of the configuration file to read. Default is
+* `--blocktime`: Set the life time for dynamically managed entries. The
+  MikroTik will be told to remove the entry from the blacklist after
+  this many hours. If autodelete is true mikrotik-fwban will take care
+  of the deletion. Default is 1 week.
+* `--filename`: Path of the configuration file to read. Default is
   /etc/mikrotik-fwban.cfg.
-* --port: UDP port we listen on for syslog formatted messages.
+* `--port`: UDP port we listen on for syslog formatted messages.
   Default is 10514.
-* --autodelete: Autodelete entries when they expire. Aka, don't trust
-  Mikrotik to do it for us. Default is one week.
-* --verbose: Be more verbose in our logging. Default is false.
-* --debug: Be absolutely staggering in our logging. Default is false.
+* `--autodelete`: Autodelete entries when they expire. Aka, don't trust
+  Mikrotik to do it for us. Default is true.
+* `--verbose`: Be more verbose in our logging. Default is false.
+* `--debug`: Be absolutely staggering in our logging. Default is false.
 
 ## Installation
 
@@ -65,8 +65,8 @@ and start this daemon at startup.
 
 ### Setup your system.
 
-* Copy mikrotik-fwban.cfg to /etc/ and edit to your liking.
-* Copy mikrotik-fwban.service to /etc/systemd/system/
+* Copy `mikrotik-fwban.cfg` to /etc/ and edit to your liking.
+* Copy `mikrotik-fwban.service` to /etc/systemd/system/
 * Execute `systemctl daemon-reload`.
 * Execute `systemctl enable mikrotik-fwban` to enable the daemon at startup.
 * Execute `systemctl start mikrotik-fwban` to start the daemon right now.
