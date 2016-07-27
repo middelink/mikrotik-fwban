@@ -19,12 +19,18 @@ Seems kind of self explanatory so I'm not going to explain every item
 in it.
 
 Remember you can use the same configurations in the central settings
-as in the Command Line.
+as on the Command Line.
 
 It is possible to administer more than one Mikrotik by using separate
 sections for each one. Perfect if you want to manage all Mikrotiks
 for your family, remote office locations or customers. You can still
 use different permanent whitelists and blacklists for each Mikrotik.
+
+The section called "regexps" needs a little bit more explaining, you
+can define your own regular expressions, which will be used to match
+log lines and extract the user and ip address from it. For these
+extractions, we use named capturing groups. `(?P<IP>...)`. If this
+section is not there or empty, some simple default will be used.
 
 ## Command Line Flags
 

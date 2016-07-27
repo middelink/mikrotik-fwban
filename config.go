@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 
@@ -35,7 +36,22 @@ type Config struct {
 		Verbose    bool
 		Port       uint16
 	}
+	RegExps struct {
+		RE []string
+	}
+	re       []regexps
 	Mikrotik map[string]*ConfigMikrotik
+}
+
+type regexps struct {
+	RE      *regexp.Regexp
+	IPIndex int
+}
+
+// We need a getter, as the `re` field is intentionally not exported, else
+// gcfg would allow assignments to it.
+func (cfg *Config) GetRE() []regexps {
+	return cfg.re
 }
 
 var (
@@ -85,9 +101,44 @@ func configParse() {
 		log.Fatal("Blocktime needs to be non-zero.")
 	}
 
-	for _, v := range cfg.Mikrotik {
+	if len(cfg.RegExps.RE) == 0 {
+		log.Println("No regexps defined, using defaults.")
+		cfg.RegExps.RE = []string{
+			// Failed password for root from 60.173.26.187 port 8962 ssh2
+			// Failed password for invalid user admin from 117.255.228.117 port 56975 ssh2
+			`Failed password for(?: invalid user)? (?P<USER>\S+) from (?P<IP>\S+) port \d+ ssh2`,
+		}
+	}
+	for _, v := range cfg.RegExps.RE {
+		re, err := regexp.Compile(v)
+		if err != nil {
+			log.Fatalf("Invalid regexp %q: %s\n", v, err)
+		}
+		index := -1
+		for i, v := range re.SubexpNames() {
+			if v == "IP" {
+				index = i
+				break
+			}
+		}
+		cfg.re = append(cfg.re, regexps{re, index})
+		if index < 0 {
+			log.Fatalf("Invalid regexp %q: missing named group IP\n", v)
+		}
+	}
+
+	for k, v := range cfg.Mikrotik {
 		if v.Disabled {
 			continue
+		}
+		if v.Address == "" {
+			log.Fatalf("%s: address is a required field", k)
+		}
+		if v.User == "" {
+			log.Fatalf("%s: user is a required field", k)
+		}
+		if v.Passwd == "" {
+			log.Fatalf("%s: passwd is a required field", k)
 		}
 		// Add port 8728 if it was not included
 		_, _, err := net.SplitHostPort(v.Address)

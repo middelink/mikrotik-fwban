@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"regexp"
 	"time"
 
 	"github.com/jeromer/syslogparser"
@@ -27,15 +26,7 @@ import (
 	"github.com/jeromer/syslogparser/rfc5424"
 )
 
-var (
-	// Failed password for root from 60.173.26.187 port 8962 ssh2
-	// Failed password for invalid user admin from 117.255.228.117 port 56975 ssh2
-	regSSH = regexp.MustCompile(`Failed password for(?: invalid user)? (\S+) from (\S+) port \d+ ssh2`)
-
-	// Registration from '"1001" <sip:1001@[82.197.195.165:5060]:5060>' failed for '195.154.185.244:5060' - Wrong password
-	// Registration from '\"1001\" <sip:1001@[82.197.195.165:5060]:5060>' failed for '195.154.185.244:5081' - Wrong password
-	regSIP = regexp.MustCompile(`Registration from '(.*)' failed for '([0-9.]+):\d+' - Wrong password`)
-)
+var ()
 
 func main() {
 	configParse()
@@ -50,7 +41,7 @@ func main() {
 			continue
 		}
 		mt, err := NewMikrotik(k, v)
-		//mt, err := NewMikrotik(k, v.Address, v.User, v.Passwd, v.ListName, v.Whitelist, v.Blacklist)
+		//mt, err := NewMikrotik(k, v.Address, v.User, v.Passwd, v.BanList, v.Whitelist, v.Blacklist)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -105,35 +96,23 @@ func main() {
 			msg = "message"
 		}
 		logparts := parser.Dump()
-		if res := regSSH.FindStringSubmatch(logparts[msg].(string)); len(res) > 0 {
-			if *debug {
-				log.Printf("MATCH!!! %s\n", string(pkt[:n]))
-				log.Printf("%#v\n", res[1:])
-			}
-			ip := parseCIDR(res[2])
-			if ip != nil {
-				for _, mt := range mts {
-					err = mt.AddIP(*ip, cfg.Settings.BlockTime)
-					if err != nil {
-						log.Fatalln(err)
-						continue
+		for _, rev := range cfg.GetRE() {
+			if res := rev.RE.FindStringSubmatch(logparts[msg].(string)); len(res) > 0 {
+				if *debug {
+					log.Printf("MATCH!!! %s\n", string(pkt[:n]))
+					log.Printf("%#v\n", res[1:])
+				}
+				ip := parseCIDR(res[rev.IPIndex])
+				if ip != nil {
+					for _, mt := range mts {
+						err = mt.AddIP(*ip, cfg.Settings.BlockTime)
+						if err != nil {
+							log.Fatalln(err)
+							continue
+						}
 					}
 				}
-			}
-		} else if res := regSIP.FindStringSubmatch(logparts[msg].(string)); len(res) > 0 {
-			if *debug {
-				log.Printf("MATCH!!! %s\n", string(pkt[:n]))
-				log.Printf("%#v\n", res[1:])
-			}
-			ip := parseCIDR(res[2])
-			if ip != nil {
-				for _, mt := range mts {
-					err = mt.AddIP(*ip, cfg.Settings.BlockTime)
-					if err != nil {
-						log.Fatalln(err)
-						continue
-					}
-				}
+				break
 			}
 		}
 	}
