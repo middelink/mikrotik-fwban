@@ -1,7 +1,10 @@
 # Mikrotik-fwban
 
-[![Build Status](https://travis-ci.org/middelink/mikrotik-fwban.svg?branch=master)](https://travis-ci.org/middelink/mikrotik-fwban)
 [![GoDoc](https://godoc.org/github.com/middelink/mikrotik-fwban?status.svg)](https://godoc.org/github.com/middelink/mikrotik-fwban)
+[![License](https://img.shields.io/github/license/middelink/mikrotik-fwban.svg)](https://github.com/middelink/mikrotik-fwban/blob/master/LICENSE)
+[![Build Status](https://travis-ci.org/middelink/mikrotik-fwban.svg?branch=master)](https://travis-ci.org/middelink/mikrotik-fwban)
+[![Coverage Status](https://coveralls.io/repos/github/middelink/mikrotik-fwban/badge.svg?branch=master)](https://coveralls.io/github/middelink/mikrotik-fwban?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/middelink/mikrotik-fwban)](https://goreportcard.com/report/github.com/middelink/mikrotik-fwban)
 
 * Command mikrotik-fwban acts as a syslog receiver and tries to extract an
   IP address out of the messages received. It then adds the IPs to the
