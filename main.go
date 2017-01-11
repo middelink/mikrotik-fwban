@@ -16,9 +16,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/jeromer/syslogparser"
@@ -26,10 +30,33 @@ import (
 	"github.com/jeromer/syslogparser/rfc5424"
 )
 
-var ()
+var (
+	filename   = flag.String("filename", "/etc/mikrotik-fwban.cfg", "Path of the configuration file to read.")
+	port       = flag.Uint("port", 0, "UDP port we listen on for syslog formatted messages.")
+	autodelete = flag.Bool("autodelete", false, "Autodelete entries when they expire. Aka, don't trust Mikrotik to do it for us.")
+	blocktime  = flag.Duration("blocktime", 0, "Set the life time for dynamically managed entries.")
+	debug      = flag.Bool("debug", false, "Be absolutely staggering in our logging.")
+	verbose    = flag.Bool("verbose", false, "Be more verbose in our logging.")
+
+	cfg Config
+)
+
+func setFlags(flags ...string) error {
+	if len(flags) != 0 {
+		// Some complicated shit to reset the flags to their default values.
+		flag.VisitAll(func(flg *flag.Flag) { flg.Value.Set(flg.DefValue) })
+		return flag.CommandLine.Parse(flags)
+	}
+	return flag.CommandLine.Parse(os.Args[1:])
+}
 
 func main() {
-	configParse()
+	setFlags()
+	var err error
+	cfg, err = newConfig(*filename, uint16(*port), Duration(*blocktime), *autodelete, *verbose)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Open connections to each mikrotik and build a list of the unique
 	// IPs they all have.
@@ -56,22 +83,39 @@ func main() {
 
 	// Distribute the missing dynamic IPs to the mikrotiks.
 	for _, mt := range mts {
+		ips := mt.GetIPs()
 		for k, ip := range mergeIP {
 			found := false
-			for _, ip2 := range mt.GetIPs() {
+			for _, ip2 := range ips {
 				if k == ip2.Net.String() {
 					found = true
 					break
 				}
 			}
 			if !found {
-				mt.AddIP(ip.Net, Duration(ip.Dead.Sub(time.Now())))
+				mt.AddIP(ip.Net, Duration(ip.Dead.Sub(time.Now())), "")
 			}
 		}
 	}
 
+	sigs := make(chan os.Signal, 1)
+	go func() {
+		for {
+			select {
+			case <-sigs:
+				log.Printf("Got signal, dumping dynlists")
+				for _, mt := range mts {
+					for i, ip := range mt.GetIPs() {
+						log.Printf("%s(%d): %s\n", mt.Name, i, ip)
+					}
+				}
+			}
+		}
+	}()
+	signal.Notify(sigs, syscall.SIGUSR1)
+
 	// Start listening to the socket for syslog messages.
-	listener, err := net.ListenPacket("udp", fmt.Sprintf("[::]:%d", cfg.Settings.Port))
+	listener, err := net.ListenPacket("udp", fmt.Sprintf(":%d", cfg.Settings.Port))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -96,7 +140,7 @@ func main() {
 			msg = "message"
 		}
 		logparts := parser.Dump()
-		for _, rev := range cfg.GetRE() {
+		for _, rev := range cfg.re {
 			if res := rev.RE.FindStringSubmatch(logparts[msg].(string)); len(res) > 0 {
 				if *debug {
 					log.Printf("MATCH!!! %s\n", string(pkt[:n]))
@@ -105,7 +149,7 @@ func main() {
 				ip := parseCIDR(res[rev.IPIndex])
 				if ip != nil {
 					for _, mt := range mts {
-						err = mt.AddIP(*ip, cfg.Settings.BlockTime)
+						err = mt.AddIP(*ip, cfg.Settings.BlockTime, logparts[msg].(string))
 						if err != nil {
 							log.Fatalln(err)
 							continue

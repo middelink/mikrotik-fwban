@@ -1,3 +1,6 @@
+// we require 1.8 for sort.Slice
+// +build go1.8
+
 package main
 
 import (
@@ -11,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	ros "github.com/Netwurx/routeros-api-go"
+	ros "github.com/middelink/routeros-api-go"
 )
 
 var (
@@ -72,14 +75,6 @@ func (b BlackIP) String() string {
 	return fmt.Sprintf("{%s, %q, %q}", b.Net.String(), b.Dead, b.ID)
 }
 
-// ByAge implements sort.Interface for []Person based on
-// the Age field.
-type ByAge []BlackIP
-
-func (a ByAge) Len() int           { return len(a) }
-func (a ByAge) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByAge) Less(i, j int) bool { return a[i].Dead.Before(a[j].Dead) }
-
 // Mikrotik contains the internal state of a Mikrotik object, configuration
 // details but also the API connection to the Mikrotik. It acts as a cache
 // between the rest of the program and the Mikrotik.
@@ -137,12 +132,10 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 			} else {
 				mt.whitelist = append(mt.whitelist, mt.getAddresslist(v[1:])...)
 			}
-		} else {
-			ip := parseCIDR(v)
-			if ip == nil {
-				log.Fatalf("%s: Unable to parse whitelist prefix/ip %s", mt.Name, v)
-			}
+		} else if ip := parseCIDR(v); ip != nil {
 			mt.whitelist = append(mt.whitelist, BlackIP{*ip, time.Time{}, ".gcfg"})
+		} else {
+			log.Fatalf("%s: Unable to parse whitelist prefix/ip %s", mt.Name, v)
 		}
 	}
 	// Fill the blacklist, aka permanent blacklist members.
@@ -153,12 +146,10 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 			} else {
 				mt.blacklist = append(mt.blacklist, mt.getAddresslist(v[1:])...)
 			}
-		} else {
-			ip := parseCIDR(v)
-			if ip == nil {
-				log.Fatalf("%s: Unable to parse blacklist prefix/ip %s", mt.Name, v)
-			}
+		} else if ip := parseCIDR(v); ip != nil {
 			mt.blacklist = append(mt.blacklist, BlackIP{*ip, time.Time{}, ".gcfg"})
+		} else {
+			log.Fatalf("%s: Unable to parse blacklist prefix/ip %s", mt.Name, v)
 		}
 	}
 
@@ -205,9 +196,9 @@ addresslist:
 				}
 			}
 		} else {
-			// Temporary entry, must not exist in permanent blacklist
+			// Temporary entry, not expected to exist in permanent blacklist
 			if _, ok := blackmap[v.Net.String()]; ok {
-				// Oops, in permanent blacklist, remove it as
+				// Oops, in permanent blacklist, remove it for now as
 				// it will be added back later as a permanent entry.
 				log.Println("Deleting unwanted dynamic blacklist entry")
 				err = mt.DelIP(v)
@@ -222,7 +213,7 @@ addresslist:
 	}
 	// Add the missing permanent blacklist entries
 	for _, v := range blackmap {
-		err := mt.AddIP(v.Net, 0)
+		err := mt.AddIP(v.Net, 0, "")
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -235,6 +226,7 @@ addresslist:
 		go func(mt *Mikrotik) {
 			var oldest time.Time
 			var oldestEntry *BlackIP
+		finished:
 			for {
 				mt.RLock()
 				if len(mt.dynlist) != 0 {
@@ -252,9 +244,15 @@ addresslist:
 					log.Printf("%s: next event: %v", mt.Name, oldest)
 				}
 				select {
-				case <-mt.hasData:
+				case _, more := <-mt.hasData:
+					if !more {
+						if *debug {
+							log.Printf("%s: Got close, stopping AutoDelete goroutine", mt.Name)
+						}
+						break finished
+					}
 					if *debug {
-						log.Printf("%s: Received indication new data is here", mt.Name)
+						log.Printf("%s: Received new data indication", mt.Name)
 					}
 					break
 				case <-time.After(oldest.Sub(time.Now())):
@@ -319,7 +317,7 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 	var ips []BlackIP
 
 	q := ros.Query{
-		Pairs: []ros.Pair{{"list", mapname, ""}},
+		Pairs: []ros.Pair{{Key: "list", Value: mapname, Op: ""}},
 	}
 	reply, err := mt.client.Query("/ip/firewall/address-list/getall", q)
 	if err != nil {
@@ -343,7 +341,7 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 			ips = append(ips, BlackIP{*ip, duration, v[".id"]})
 		}
 	}
-	sort.Sort(ByAge(ips))
+	sort.Slice(ips, func(i, j int) bool { return ips[i].Dead.Before(ips[j].Dead) })
 	if *debug {
 		log.Printf("%s: getAddresslist(%s)=%v", mt.Name, mapname, ips)
 	} else if cfg.Settings.Verbose {
@@ -357,12 +355,12 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: DelIP(%s)", mt.Name, ip.String())
 	}
-	args := []ros.Pair{{".id", ip.ID, ""}}
+	args := []ros.Pair{{Key: ".id", Value: ip.ID}}
 	var err error
 	if ip.Net.IP.To4() != nil {
-		_, err = mt.client.Call("/ip/firewall/address-list/remove", args)
+		_, err = mt.client.Call("/ip/firewall/address-list/remove", args...)
 	} else {
-		_, err = mt.client.Call("/ipv6/firewall/address-list/remove", args)
+		_, err = mt.client.Call("/ipv6/firewall/address-list/remove", args...)
 	}
 	if err != nil {
 		return err
@@ -378,7 +376,7 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 // spit out an error which in the current implementation leads to a program
 // restart. For all timeouts != 0, the index returned over the Mikrotik
 // connection is stored, together with the IP itself, in the dynlist entry.
-func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration) error {
+func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: AddIP(%s/%v)", mt.Name, ip.String(), duration)
 	}
@@ -388,23 +386,26 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration) error {
 		// Check if it is on the whitelist
 		for _, v := range mt.whitelist {
 			if v.Net.Contains(ip.IP) {
-				log.Printf("%s: %v is on the admin whitelist, skipped", mt.Name, ip.IP)
+				log.Printf("%s: AddIP(%v) is on the admin whitelist, skipped", mt.Name, ip.IP)
 				return nil
 			}
 		}
 		// Check if it is on the permanent blacklist
 		for _, v := range mt.blacklist {
 			if v.Net.Contains(ip.IP) {
-				log.Printf("%s: %v is on the admin blacklist, skipped", mt.Name, ip.IP)
+				log.Printf("%s: AddIP(%v) is on the admin blacklist, skipped", mt.Name, ip.IP)
 				return nil
 			}
 		}
+		mt.RLock()
 		for _, v := range mt.dynlist {
 			if v.Net.Contains(ip.IP) {
-				log.Printf("%s: %v is on the dynamic blacklist, skipped", mt.Name, ip.IP)
+				mt.RUnlock()
+				log.Printf("%s: AddIP(%v) is already on the dynamic blacklist, skipped", mt.Name, ip.IP)
 				return nil
 			}
 		}
+		mt.RUnlock()
 	}
 
 	// Do the physical interaction with the MT
@@ -415,43 +416,48 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration) error {
 	if duration != 0 {
 		args = append(args, *ros.NewPair("timeout", duration.String()))
 	}
+	if comment != "" {
+		args = append(args, *ros.NewPair("comment", comment))
+	}
 	var err error
 	var reply ros.Reply
 	if ip.IP.To4() != nil {
-		reply, err = mt.client.Call("/ip/firewall/address-list/add", args)
+		reply, err = mt.client.Call("/ip/firewall/address-list/add", args...)
 	} else {
-		reply, err = mt.client.Call("/ipv6/firewall/address-list/add", args)
+		reply, err = mt.client.Call("/ipv6/firewall/address-list/add", args...)
 	}
 	if err != nil {
-		return err
+		if strings.Contains(err.Error(), "already have") {
+			return nil
+		}
+		return fmt.Errorf("call=%v", err)
 	}
 	var id string
 	if id, err = reply.GetPairVal("message"); err == nil {
-		return fmt.Errorf(id)
+		return fmt.Errorf("msg=%s", id)
 	}
 	if id, err = reply.GetPairVal("ret"); err != nil {
 		return err
 	}
 
 	// Add the entry to the dynlist if it has a timeout
-	if duration != 0 {
+	if duration != 0 && cfg.Settings.AutoDelete {
 		mt.Lock()
-		defer mt.Unlock()
 		mt.dynlist = append(mt.dynlist, BlackIP{ip, time.Now().Add(time.Duration(duration)), id})
-		sort.Sort(ByAge(mt.dynlist))
-		if cfg.Settings.AutoDelete {
-			mt.hasData <- struct{}{}
-		}
+		sort.Slice(mt.dynlist, func(i, j int) bool { return mt.dynlist[i].Dead.Before(mt.dynlist[j].Dead) })
+		mt.Unlock()
+		mt.hasData <- struct{}{}
 	}
 	return nil
 }
 
 // Close closes the session with the mikrotik.
 func (mt *Mikrotik) Close() {
+	close(mt.hasData)
 	mt.client.Close()
 }
 
 // GetIPs returns the current list of blacklisted IPs.
 func (mt *Mikrotik) GetIPs() (r []BlackIP) {
-	return mt.dynlist
+	return mt.dynlist[:]
 }
