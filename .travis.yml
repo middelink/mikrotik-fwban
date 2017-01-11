@@ -1,7 +1,17 @@
 language: go
 
+go:
+  - tip
+
 install:
   - go get -t -v ./...
 
 script:
+  - go test -v ./...
   - go build -v ./...
+
+before_install:
+  - go get github.com/mattn/goveralls
+
+after_success:
+  - $HOME/gopath/bin/goveralls -service=travis-ci

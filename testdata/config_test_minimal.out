@@ -1,0 +1,22 @@
+{
+    "Settings": {
+        "BlockTime": "5h",
+        "AutoDelete": true,
+        "Verbose": true,
+        "Port": 1234
+    },
+    "RegExps": {
+        "RE": [
+            "Dummy regexp for (?P<IP>\\S+)"
+        ]
+    },
+    "Mikrotik": {
+        "MT-1": {
+            "Disabled": false,
+            "Address": "1.2.3.4:8728",
+            "User": "user",
+            "Passwd": "passwd",
+            "BanList": "blacklist"
+        }
+    }
+}
