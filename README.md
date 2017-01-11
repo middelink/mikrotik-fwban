@@ -6,8 +6,10 @@
 [![Coverage Status](https://coveralls.io/repos/github/middelink/mikrotik-fwban/badge.svg?branch=master)](https://coveralls.io/github/middelink/mikrotik-fwban?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/middelink/mikrotik-fwban)](https://goreportcard.com/report/github.com/middelink/mikrotik-fwban)
 
-* Command mikrotik-fwban acts as a syslog receiver and tries to extract an
-  IP address out of the messages received. It then adds the IPs to the
+## TL;DR
+
+* mikrotik-fwban acts as a syslog receiver and tries to extract an IP
+  address out of the messages received. It then adds the IPs to the
   banlist on the configured Mikrotiks. In essence it is a Fail2Ban done the
   lazy way. Since it leverages the filtering mechanisms of rsyslog to do the
   pre-filtering, it should be able to handle large sets of publicly
@@ -32,8 +34,7 @@ use different permanent whitelists and blacklists for each Mikrotik.
 The section called "regexps" needs a little bit more explaining, you
 can define your own regular expressions, which will be used to match
 log lines and extract the user and ip address from it. For these
-extractions, we use named capturing groups. `(?P<IP>...)`. If this
-section is not there or empty, some simple default will be used.
+extractions, we use named capturing groups. `(?P<IP>...)`.
 
 ## Command Line Flags
 
