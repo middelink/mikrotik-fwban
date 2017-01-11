@@ -84,7 +84,7 @@ and start this daemon at startup.
 
 * Add a snippet to /etc/rsyslog.d to (re)send interesting messages to the
   mikrotik port, best thing is to filter on error conditions containing an
-  IP you want to block. Example below:
+  IP you want to block. Example for rsyslog below:
 
   ```
   if re_match($msg, "failed for '[0-9a-f:.]*' - Wrong password") then
