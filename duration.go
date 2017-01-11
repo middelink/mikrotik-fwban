@@ -19,6 +19,7 @@ func (d *Duration) UnmarshalText(data []byte) (err error) {
 	return
 }
 
+// MarshalText returns a human parsable output of a duration.
 func (d Duration) MarshalText() (text []byte, err error) {
 	// We could have simply done
 	//  return []byte(d.String()), nil
