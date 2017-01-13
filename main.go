@@ -7,7 +7,7 @@
 // banlist on the configured Mikrotiks. In essence it is a Fail2Ban done the
 // lazy way. Since it leverages the filtering mechanisms of rsyslog to do the
 // pre-filtering, it should be able to handle large sets of publicly
-// accessable machines (famous last words, I know).
+// accessible machines (famous last words, I know).
 //
 // It handles both IPv4 and IPv6 addresses and banlists.
 //
@@ -129,28 +129,24 @@ func main() {
 		var parser syslogparser.LogParser
 		parser = rfc3164.NewParser(pkt[:n])
 		msg := "content"
-		err = parser.Parse()
-		if err != nil {
+		if err = parser.Parse(); err != nil {
 			parser = rfc5424.NewParser(pkt[:n])
-			err = parser.Parse()
-			if err != nil {
+			if err = parser.Parse(); err != nil {
 				log.Println(err)
 				continue
 			}
 			msg = "message"
 		}
 		logparts := parser.Dump()
-		for _, rev := range cfg.re {
-			if res := rev.RE.FindStringSubmatch(logparts[msg].(string)); len(res) > 0 {
+		for _, re := range cfg.re {
+			if res := re.RE.FindStringSubmatch(logparts[msg].(string)); len(res) > 0 {
 				if *debug {
 					log.Printf("MATCH!!! %s\n", string(pkt[:n]))
 					log.Printf("%#v\n", res[1:])
 				}
-				ip := parseCIDR(res[rev.IPIndex])
-				if ip != nil {
+				if ip := parseCIDR(res[re.IPIndex]); ip != nil {
 					for _, mt := range mts {
-						err = mt.AddIP(*ip, cfg.Settings.BlockTime, logparts[msg].(string))
-						if err != nil {
+						if err = mt.AddIP(*ip, cfg.Settings.BlockTime, logparts[msg].(string)); err != nil {
 							log.Fatalln(err)
 							continue
 						}
