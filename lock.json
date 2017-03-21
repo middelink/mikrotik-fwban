@@ -1,0 +1,42 @@
+{
+    "memo": "706cdca6fd2a28ba450552cfa7b9baebd0c33bf5621ba3962da67f0f28dbdedd",
+    "projects": [
+        {
+            "name": "github.com/jeromer/syslogparser",
+            "branch": "master",
+            "revision": "0e4ae46ea3f08de351074b643d649d5d00661a3c",
+            "packages": [
+                ".",
+                "rfc3164",
+                "rfc5424"
+            ]
+        },
+        {
+            "name": "github.com/middelink/routeros-api-go",
+            "branch": "master",
+            "revision": "840a9a687a0b1159e054b7c34f87ff92d91f0515",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "gopkg.in/gcfg.v1",
+            "branch": "master",
+            "revision": "27e4946190b4a327b539185f2b5b1f7c84730728",
+            "packages": [
+                ".",
+                "scanner",
+                "token",
+                "types"
+            ]
+        },
+        {
+            "name": "gopkg.in/warnings.v0",
+            "branch": "master",
+            "revision": "8a331561fe74dadba6edfc59f3be66c22c3b065d",
+            "packages": [
+                "."
+            ]
+        }
+    ]
+}

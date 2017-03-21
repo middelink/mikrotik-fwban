@@ -1,0 +1,13 @@
+{
+    "dependencies": {
+        "github.com/jeromer/syslogparser": {
+            "branch": "master"
+        },
+        "github.com/middelink/routeros-api-go": {
+            "branch": "master"
+        },
+        "gopkg.in/gcfg.v1": {
+            "branch": "master"
+        }
+    }
+}
