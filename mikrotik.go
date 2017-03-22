@@ -1,6 +1,3 @@
-// we require 1.8 for sort.Slice
-// +build go1.8
-
 package main
 
 import (
@@ -21,6 +18,14 @@ var (
 	// 28w4d23h59m56s
 	regTimeout = regexp.MustCompile(`(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?`)
 )
+
+// ByAge implements sort.Interface for []Person based on
+// the Age field.
+type ByAge []BlackIP
+
+func (a ByAge) Len() int           { return len(a) }
+func (a ByAge) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByAge) Less(i, j int) bool { return a[i].Dead.Before(a[j].Dead) }
 
 // ParseCIDR parses s as a CIDR notation IP address and mask,
 // like "192.168.100.1/24" or "2001:DB8::/48", as defined in
@@ -341,7 +346,7 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 			ips = append(ips, BlackIP{*ip, duration, v[".id"]})
 		}
 	}
-	sort.Slice(ips, func(i, j int) bool { return ips[i].Dead.Before(ips[j].Dead) })
+	sort.Sort(ByAge(ips))
 	if *debug {
 		log.Printf("%s: getAddresslist(%s)=%v", mt.Name, mapname, ips)
 	} else if cfg.Settings.Verbose {
@@ -444,7 +449,7 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 	if duration != 0 && cfg.Settings.AutoDelete {
 		mt.Lock()
 		mt.dynlist = append(mt.dynlist, BlackIP{ip, time.Now().Add(time.Duration(duration)), id})
-		sort.Slice(mt.dynlist, func(i, j int) bool { return mt.dynlist[i].Dead.Before(mt.dynlist[j].Dead) })
+		sort.Sort(ByAge(mt.dynlist))
 		mt.Unlock()
 		mt.hasData <- struct{}{}
 	}
