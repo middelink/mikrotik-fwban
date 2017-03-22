@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,7 +45,12 @@ var (
 func setFlags(flags ...string) error {
 	if len(flags) != 0 {
 		// Some complicated shit to reset the flags to their default values.
-		flag.VisitAll(func(flg *flag.Flag) { flg.Value.Set(flg.DefValue) })
+		// Make sure not to touch the test.* flags as that will inhibit any profiling.
+		flag.VisitAll(func(flg *flag.Flag) {
+			if !strings.HasPrefix(flg.Name, "test.") {
+				flg.Value.Set(flg.DefValue)
+			}
+		})
 		return flag.CommandLine.Parse(flags)
 	}
 	return flag.CommandLine.Parse(os.Args[1:])
