@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	ros "github.com/middelink/routeros-api-go"
+	ros "gopkg.in/routeros.v2"
 )
 
 var (
@@ -117,11 +117,7 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 	}
 	// Open the connection
 	var err error
-	mt.client, err = ros.New(mt.Address)
-	if err != nil {
-		return nil, err
-	}
-	err = mt.client.Connect(mt.User, mt.Passwd)
+	mt.client, err = ros.Dial(mt.Address, mt.User, mt.Passwd)
 	if err != nil {
 		return nil, err
 	}
@@ -321,29 +317,27 @@ func (mt *Mikrotik) toDuration(mapname string, dict map[string]string) time.Time
 func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 	var ips []BlackIP
 
-	q := ros.Query{
-		Pairs: []ros.Pair{{Key: "list", Value: mapname, Op: ""}},
-	}
-	reply, err := mt.client.Query("/ip/firewall/address-list/getall", q)
+	list := fmt.Sprintf("?list=%s", mapname)
+	reply, err := mt.client.Run("/ip/firewall/address-list/getall", list)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	for _, v := range reply.SubPairs {
-		ip := parseCIDR(v["address"])
+	for _, re := range reply.Re {
+		ip := parseCIDR(re.Map["address"])
 		if ip != nil {
-			duration := mt.toDuration(mapname, v)
-			ips = append(ips, BlackIP{*ip, duration, v[".id"]})
+			duration := mt.toDuration(mapname, re.Map)
+			ips = append(ips, BlackIP{*ip, duration, re.Map[".id"]})
 		}
 	}
-	reply, err = mt.client.Query("/ipv6/firewall/address-list/getall", q)
+	reply, err = mt.client.Run("/ipv6/firewall/address-list/getall", list)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	for _, v := range reply.SubPairs {
-		ip := parseCIDR(v["address"])
+	for _, re := range reply.Re {
+		ip := parseCIDR(re.Map["address"])
 		if ip != nil {
-			duration := mt.toDuration(mapname, v)
-			ips = append(ips, BlackIP{*ip, duration, v[".id"]})
+			duration := mt.toDuration(mapname, re.Map)
+			ips = append(ips, BlackIP{*ip, duration, re.Map[".id"]})
 		}
 	}
 	sort.Sort(ByAge(ips))
@@ -360,18 +354,14 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: DelIP(%s)", mt.Name, ip.String())
 	}
-	args := []ros.Pair{{Key: ".id", Value: ip.ID}}
+	selector := fmt.Sprintf("=.id=%s", ip.ID)
 	var err error
 	if ip.Net.IP.To4() != nil {
-		_, err = mt.client.Call("/ip/firewall/address-list/remove", args...)
+		_, err = mt.client.Run("/ip/firewall/address-list/remove", selector)
 	} else {
-		_, err = mt.client.Call("/ipv6/firewall/address-list/remove", args...)
+		_, err = mt.client.Run("/ipv6/firewall/address-list/remove", selector)
 	}
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // AddIP will add the given ip address to the Mikrotik, when duration is 0,
@@ -414,35 +404,35 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 	}
 
 	// Do the physical interaction with the MT
-	args := []ros.Pair{
-		*ros.NewPair("address", ip.String()),
-		*ros.NewPair("list", mt.banlist),
+	args := []string{
+		"/ip/firewall/address-list/add",
+		fmt.Sprintf("=address=%s", ip.String()),
+		fmt.Sprintf("=list=%s", mt.banlist),
+	}
+	if ip.IP.To4() == nil {
+		args[0] = "/ipv6/firewall/address-list/add"
 	}
 	if duration != 0 {
-		args = append(args, *ros.NewPair("timeout", duration.String()))
+		args = append(args, fmt.Sprintf("=timeout=%s", duration))
 	}
 	if comment != "" {
-		args = append(args, *ros.NewPair("comment", comment))
+		args = append(args, fmt.Sprintf("=comment=%s", comment))
 	}
 	var err error
-	var reply ros.Reply
-	if ip.IP.To4() != nil {
-		reply, err = mt.client.Call("/ip/firewall/address-list/add", args...)
-	} else {
-		reply, err = mt.client.Call("/ipv6/firewall/address-list/add", args...)
-	}
+	var reply *ros.Reply
+	reply, err = mt.client.RunArgs(args)
 	if err != nil {
 		if strings.Contains(err.Error(), "already have") {
 			return nil
 		}
-		return fmt.Errorf("call=%v", err)
+		return fmt.Errorf("addip=%v", err)
 	}
-	var id string
-	if id, err = reply.GetPairVal("message"); err == nil {
-		return fmt.Errorf("msg=%s", id)
-	}
-	if id, err = reply.GetPairVal("ret"); err != nil {
-		return err
+	var (
+		id string
+		ok bool
+	)
+	if id, ok = reply.Done.Map["ret"]; !ok {
+		return fmt.Errorf("missing `ret`")
 	}
 
 	// Add the entry to the dynlist if it has a timeout

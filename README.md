@@ -109,5 +109,4 @@ and start this daemon at startup.
 Mikrotik-fwban uses
 [go-gcfg](https://github.com/go-gcfg/gcfg/tree/v1),
 [syslogparser](github.com/jeromer/syslogparser),
-[routeros-api-go](https://github.com/Netwurx/routeros-api-go)
-
+[routeros](https://github.com/go-routeros/routeros/tree/v2)

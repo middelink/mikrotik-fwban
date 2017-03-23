@@ -6,11 +6,11 @@
         "github.com/jeromer/syslogparser": {
             "branch": "master"
         },
-        "github.com/middelink/routeros-api-go": {
-            "branch": "master"
-        },
         "gopkg.in/gcfg.v1": {
-            "branch": "master"
+            "version": "^1.0.0"
+        },
+        "gopkg.in/routeros.v2": {
+            "branch": "v2"
         },
         "gopkg.in/yaml.v2": {
             "branch": "v2"
