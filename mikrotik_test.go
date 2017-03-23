@@ -22,12 +22,14 @@ func TestParseCIDR(t *testing.T) {
 		{false, "192.168.10/24", ""},
 		{false, "not_an_ip", ""},
 		{false, "not_an_ip/32", ""},
+		{true, "fe80:0123:4567::1234:5678:abce:f123", "fe80:123:4567:0:1234:5678:abce:f123/128"},
 		{true, "fe80:0123:4567::1234:5678:abce:f123/128", "fe80:123:4567:0:1234:5678:abce:f123/128"},
 		{true, "fe80:0123:4567::1234:5678:abce:f123/64", "fe80:123:4567::/64"},
 		{false, "fe80:g123::/64", ""},
 		{false, "fe80:0123:4567:abcd:1234:5678:abce:f123:6545/64", ""},
 		{false, "fe80:0123:4567::1234:5678:abce:f123/129", ""},
 	}
+	cfg.Settings.Verbose = true
 	for _, d := range testdata {
 		ip := parseCIDR(d.str)
 		//t.Logf("ok=%v, str=%v, ip=%v", d.expectOk, d.str, ip)

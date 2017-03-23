@@ -31,10 +31,7 @@ func TestFlagOverride(t *testing.T) {
 		setFlags(strings.Split(d.Override, " ")...)
 		t.Run(d.Name, func(t *testing.T) {
 			var cfg Config
-			err := cfg.mergeFlags(uint16(*port), Duration(*blocktime), *autodelete, *verbose)
-			if err != nil {
-				t.Error(err)
-			}
+			cfg.mergeFlags(uint16(*port), Duration(*blocktime), *autodelete, *verbose)
 			if cfg.Settings.BlockTime != d.ExpectBlockTime {
 				t.Errorf("settings.blocktime: expected %v, actual %v", d.ExpectBlockTime, cfg.Settings.BlockTime)
 			}
@@ -49,6 +46,7 @@ func TestFlagOverride(t *testing.T) {
 			}
 		})
 	}
+	setFlags()
 }
 
 func TestReadConfig(t *testing.T) {
@@ -74,7 +72,7 @@ func TestReadConfig(t *testing.T) {
 			}
 
 			var buf bytes.Buffer
-			cfg, err := newConfig(fname, 1234, Duration(5*time.Hour), true, true)
+			cfg, err := newConfig(fname, 1234, Duration(0*time.Hour), true, true)
 			if expectOk {
 				if err != nil {
 					t.Fatal(err)

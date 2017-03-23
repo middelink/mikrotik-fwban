@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net"
 	"regexp"
@@ -46,31 +45,20 @@ type regexps struct {
 	IPIndex int
 }
 
-func hasFlag(s string) bool {
-	var res bool
-	flag.Visit(func(f *flag.Flag) {
-		if s == f.Name {
-			res = true
-		}
-	})
-	return res
-}
-
-func (c *Config) mergeFlags(port uint16, blocktime Duration, autodelete, verbose bool) error {
+func (c *Config) mergeFlags(port uint16, blocktime Duration, autodelete, verbose bool) {
 	// Commandline flags override the config, but only when set
-	if hasFlag("blocktime") {
+	if blocktime != 0 {
 		c.Settings.BlockTime = blocktime
 	}
-	if hasFlag("autodelete") {
+	if autodelete {
 		c.Settings.AutoDelete = autodelete
 	}
-	if hasFlag("verbose") {
+	if verbose {
 		c.Settings.Verbose = verbose
 	}
-	if hasFlag("port") {
+	if port != 0 {
 		c.Settings.Port = port
 	}
-	return nil
 }
 
 func (c *Config) setupDefaults() error {
@@ -101,7 +89,7 @@ func (c *Config) setupDefaults() error {
 		if err != nil {
 			// For anything else than missing port, bail.
 			if !strings.Contains(err.Error(), "missing port in address") {
-				continue
+				return fmt.Errorf("%s: malformed address: %v", k, err)
 			}
 			v.Address = net.JoinHostPort(v.Address, "8728")
 		}
@@ -121,7 +109,7 @@ func (c *Config) setupREs() error {
 	for _, v := range c.RegExps.RE {
 		re, err := regexp.Compile(v)
 		if err != nil {
-			return fmt.Errorf("invalid regexp %q: %s", v, err)
+			return err
 		}
 		index := -1
 		for i, v := range re.SubexpNames() {
@@ -132,7 +120,7 @@ func (c *Config) setupREs() error {
 		}
 		c.re = append(c.re, regexps{re, index})
 		if index < 0 {
-			return fmt.Errorf("invalid regexp %q: missing named group IP", v)
+			return fmt.Errorf("missing named group `IP` in regexp %q", v)
 		}
 	}
 
@@ -145,9 +133,7 @@ func newConfig(path string, port uint16, blocktime Duration, autodelete, verbose
 	if err != nil {
 		return Config{}, err
 	}
-	if err = cfg.mergeFlags(port, blocktime, autodelete, verbose); err != nil {
-		return Config{}, err
-	}
+	cfg.mergeFlags(port, blocktime, autodelete, verbose)
 	if err = cfg.setupDefaults(); err != nil {
 		return Config{}, err
 	}

@@ -1,6 +1,6 @@
 {
     "Settings": {
-        "BlockTime": "5h",
+        "BlockTime": "36h",
         "AutoDelete": true,
         "Verbose": true,
         "Port": 1234

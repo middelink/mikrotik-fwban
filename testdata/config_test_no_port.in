@@ -1,10 +1,9 @@
 [settings]
- blocktime = 36h
 
 [regexps]
  re = "Dummy regexp for (?P<IP>\\S+)"
 
 [Mikrotik "MT-1"]
-  address = 1.2.3.4
+  address = weird:address:with:no:port
   user = user
   passwd = passwd
