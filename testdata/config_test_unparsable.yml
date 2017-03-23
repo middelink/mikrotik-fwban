@@ -1,0 +1,11 @@
+in: |-
+    [something]
+      boolean = value
+
+err:
+      - |
+        warnings:
+        can't store data at section "something"
+        can't store data at section "something"
+        can't store data at section "something"
+        can't store data at section "something"

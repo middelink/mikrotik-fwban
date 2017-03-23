@@ -1,0 +1,13 @@
+in: |
+        [settings]
+
+        [regexps]
+        re = "Dummy regexp for (?P<IP>\\S+"
+
+        [Mikrotik "MT-1"]
+        address = 1.2.3.4
+        user = user
+        passwd = passwd
+
+err:
+        - 'error parsing regexp: missing closing ): `Dummy regexp for (?P<IP>\S+`'

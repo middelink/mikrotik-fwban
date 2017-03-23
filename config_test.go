@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"os"
 	"path"
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 func TestFlagOverride(t *testing.T) {
@@ -55,50 +56,59 @@ func TestReadConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, file := range files {
-		if !file.Mode().IsRegular() || !strings.HasSuffix(file.Name(), ".in") {
+		if !file.Mode().IsRegular() || !strings.HasSuffix(file.Name(), ".yml") {
 			continue
 		}
-		t.Run(strings.TrimSuffix(file.Name(), ".in"), func(t *testing.T) {
-			fname := path.Join("testdata", file.Name())
-			rname := strings.TrimSuffix(fname, "in")
-			var expectOk bool
-			if st, err := os.Stat(rname + "out"); err == nil && st.Mode().IsRegular() {
-				expectOk = true
+		t.Run(strings.TrimSuffix(file.Name(), ".yml"), func(t *testing.T) {
+			var yml struct {
+				In  string
+				Out string
+				Err []string
 			}
-			if st, err := os.Stat(rname + "err"); err == nil && st.Mode().IsRegular() {
-				if expectOk {
-					t.Fatalf("%s: not expecting both .out and .err files", file.Name())
-				}
+			fname := path.Join("testdata", file.Name())
+			data, err := ioutil.ReadFile(fname)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = yaml.Unmarshal(data, &yml); err != nil {
+				t.Fatal(err)
+			}
+			if len(yml.Err) != 0 && len(yml.Out) != 0 {
+				t.Fatal("One cannot have both err: and out: set")
 			}
 
-			var buf bytes.Buffer
-			cfg, err := newConfig(fname, 1234, Duration(0*time.Hour), true, true)
-			if expectOk {
+			cfg, err := newConfigString(yml.In, 0, Duration(0*time.Hour), false, false)
+			if len(yml.Out) != 0 {
 				if err != nil {
 					t.Fatal(err)
 				}
+				var buf bytes.Buffer
 				enc := json.NewEncoder(&buf)
 				enc.SetEscapeHTML(false)
 				enc.SetIndent("", "    ")
 				if err := enc.Encode(cfg); err != nil {
 					t.Fatal(err)
 				}
-				rname += "out"
+				if buf.String() != yml.Out {
+					t.Errorf("%s: does not match expected output\n---\n%s---\n%s---\n", file.Name(), buf.String(), yml.Out)
+				}
 			} else {
 				if err == nil {
 					t.Fatalf("%s: expected error, got nil", file.Name())
 				}
+				var buf bytes.Buffer
 				buf.WriteString(err.Error())
-				buf.WriteString("\n")
-				rname += "err"
-			}
-			out, err := ioutil.ReadFile(rname)
-			if err != nil {
-				t.Fatal(err)
-			}
 
-			if !bytes.Equal(buf.Bytes(), out) {
-				t.Errorf("%s: does not match expected output\n---\n%s---\n", file.Name(), buf.String())
+				found := false
+				for _, e := range yml.Err {
+					if buf.String() == e {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("%s: does not match any of the expected errors\n---\n%s---\n%s---\n", file.Name(), buf.String(), yml.Err[0])
+				}
 			}
 		})
 	}

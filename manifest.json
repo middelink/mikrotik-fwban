@@ -8,6 +8,9 @@
         },
         "gopkg.in/gcfg.v1": {
             "branch": "master"
+        },
+        "gopkg.in/yaml.v2": {
+            "branch": "v2"
         }
     }
 }

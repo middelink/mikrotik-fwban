@@ -1,0 +1,12 @@
+in: |-
+        [settings]
+        
+        [regexps]
+         re = "Dummy regexp for (?P<IP>\\S+)"
+        
+        [Mikrotik "MT-1"]
+          user = user
+          passwd = passwd
+
+err:
+        - 'MT-1: address is a required field'

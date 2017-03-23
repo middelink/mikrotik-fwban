@@ -1,0 +1,14 @@
+in: |-
+        [settings]
+        
+        [regexps]
+         re = "Dummy regexp for (?P<IP>\\S+)"
+        
+        [Mikrotik "MT-1"]
+          address = weird:address:with:no:port
+          user = user
+          passwd = passwd
+
+err:
+        - 'MT-1: malformed address: address weird:address:with:no:port: too many colons in address'
+        - 'MT-1: malformed address: too many colons in address weird:address:with:no:port'

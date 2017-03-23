@@ -1,0 +1,38 @@
+in: |-
+        [settings]
+         blocktime = 36h
+         autodelete = true
+         verbose = true
+         port = 1234
+        
+        [regexps]
+         re = "Dummy regexp for (?P<IP>\\S+)"
+        
+        [Mikrotik "MT-1"]
+          address = 1.2.3.4
+          user = user
+          passwd = passwd
+
+out: |+
+     {
+         "Settings": {
+             "BlockTime": "36h",
+             "AutoDelete": true,
+             "Verbose": true,
+             "Port": 1234
+         },
+         "RegExps": {
+             "RE": [
+                 "Dummy regexp for (?P<IP>\\S+)"
+             ]
+         },
+         "Mikrotik": {
+             "MT-1": {
+                 "Disabled": false,
+                 "Address": "1.2.3.4:8728",
+                 "User": "user",
+                 "Passwd": "passwd",
+                 "BanList": "blacklist"
+             }
+         }
+     }

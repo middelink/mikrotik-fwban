@@ -59,7 +59,7 @@ func setFlags(flags ...string) error {
 func main() {
 	setFlags()
 	var err error
-	cfg, err = newConfig(*filename, uint16(*port), Duration(*blocktime), *autodelete, *verbose)
+	cfg, err = newConfigFile(*filename, uint16(*port), Duration(*blocktime), *autodelete, *verbose)
 	if err != nil {
 		log.Fatal(err)
 	}

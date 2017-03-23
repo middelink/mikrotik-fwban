@@ -1,9 +1,0 @@
-[settings]
-
-[regexps]
- re = "Dummy regexp for (?P<IP>\\S+)"
-
-[Mikrotik "MT-1"]
-  address = weird:address:with:no:port
-  user = user
-  passwd = passwd

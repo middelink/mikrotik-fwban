@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"regexp"
 	"strings"
@@ -127,9 +128,9 @@ func (c *Config) setupREs() error {
 	return nil
 }
 
-func newConfig(path string, port uint16, blocktime Duration, autodelete, verbose bool) (Config, error) {
+func newConfigString(data string, port uint16, blocktime Duration, autodelete, verbose bool) (Config, error) {
 	var cfg Config
-	err := gcfg.ReadFileInto(&cfg, path)
+	err := gcfg.ReadStringInto(&cfg, data)
 	if err != nil {
 		return Config{}, err
 	}
@@ -141,4 +142,12 @@ func newConfig(path string, port uint16, blocktime Duration, autodelete, verbose
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+func newConfigFile(path string, port uint16, blocktime Duration, autodelete, verbose bool) (Config, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return Config{}, err
+	}
+	return newConfigString(string(data), port, blocktime, autodelete, verbose)
 }

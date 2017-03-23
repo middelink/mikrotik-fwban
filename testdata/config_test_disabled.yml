@@ -1,0 +1,14 @@
+in: |-
+        [settings]
+
+        [regexps]
+         re = "Dummy regexp for (?P<IP>\\S+)"
+
+        [Mikrotik "MT-1"]
+          disabled = true
+          address = 1.2.3.4
+          user = user
+          passwd = passwd
+
+err:
+        - 'need at least one valid Mikrotik configuration'

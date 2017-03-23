@@ -1,5 +1,5 @@
 {
-    "memo": "706cdca6fd2a28ba450552cfa7b9baebd0c33bf5621ba3962da67f0f28dbdedd",
+    "memo": "41c8a8ffdc3af9a6ceb4a2e37ac3ca8609521cd0d933f06e55e24680396ba449",
     "projects": [
         {
             "name": "github.com/jeromer/syslogparser",
@@ -34,6 +34,14 @@
             "name": "gopkg.in/warnings.v0",
             "branch": "master",
             "revision": "8a331561fe74dadba6edfc59f3be66c22c3b065d",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "gopkg.in/yaml.v2",
+            "branch": "v2",
+            "revision": "a3f3340b5840cee44f372bddb5880fcbc419b46a",
             "packages": [
                 "."
             ]

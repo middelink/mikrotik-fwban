@@ -1,0 +1,10 @@
+in: |-
+        [settings]
+        
+        [Mikrotik "MT-1"]
+          address = 1.2.3.4
+          user = user
+          passwd = passwd
+
+err:
+        - 'need at least one valid regexp'
