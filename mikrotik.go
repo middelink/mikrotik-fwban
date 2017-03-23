@@ -160,8 +160,8 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 
 	// Fetch and split the managed blacklist in permanent and dynamic members
 	blackmap := make(map[string]*BlackIP)
-	for _, v := range mt.blacklist {
-		blackmap[v.Net.String()] = &v
+	for i, v := range mt.blacklist {
+		blackmap[v.Net.String()] = &mt.blacklist[i]
 	}
 
 	// Check if the whitelist entries are not in the permanent blacklist
