@@ -1,6 +1,14 @@
 {
-    "memo": "41c8a8ffdc3af9a6ceb4a2e37ac3ca8609521cd0d933f06e55e24680396ba449",
+    "memo": "277e622d5c6fec19e27401dee0b98b4db503f47f8e453a66c28512790d7302ea",
     "projects": [
+        {
+            "name": "github.com/howeyc/fsnotify",
+            "version": "v0.9.0",
+            "revision": "441bbc86b167f3c1f4786afae9931403b99fdacf",
+            "packages": [
+                "."
+            ]
+        },
         {
             "name": "github.com/jeromer/syslogparser",
             "branch": "master",

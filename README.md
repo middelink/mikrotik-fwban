@@ -42,6 +42,7 @@ extractions, we use named capturing groups. `(?P<IP>...)`.
   MikroTik will be told to remove the entry from the blacklist after
   this many hours. If autodelete is true mikrotik-fwban will take care
   of the deletion. Default is 1 week.
+* `--configchange`: Exit process when config file changes.
 * `--filename`: Path of the configuration file to read. Default is
   /etc/mikrotik-fwban.cfg.
 * `--port`: UDP port we listen on for syslog formatted messages.

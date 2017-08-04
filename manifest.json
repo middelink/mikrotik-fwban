@@ -1,5 +1,8 @@
 {
     "dependencies": {
+        "github.com/howeyc/fsnotify": {
+            "version": "<1.0.0"
+        },
         "github.com/jeromer/syslogparser": {
             "branch": "master"
         },

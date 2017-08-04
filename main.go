@@ -26,18 +26,20 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/howeyc/fsnotify"
 	"github.com/jeromer/syslogparser"
 	"github.com/jeromer/syslogparser/rfc3164"
 	"github.com/jeromer/syslogparser/rfc5424"
 )
 
 var (
-	filename   = flag.String("filename", "/etc/mikrotik-fwban.cfg", "Path of the configuration file to read.")
-	port       = flag.Uint("port", 0, "UDP port we listen on for syslog formatted messages.")
-	autodelete = flag.Bool("autodelete", false, "Autodelete entries when they expire. Aka, don't trust Mikrotik to do it for us.")
-	blocktime  = flag.Duration("blocktime", 0, "Set the life time for dynamically managed entries.")
-	debug      = flag.Bool("debug", false, "Be absolutely staggering in our logging.")
-	verbose    = flag.Bool("verbose", false, "Be more verbose in our logging.")
+	filename      = flag.String("filename", "/etc/mikrotik-fwban.cfg", "Path of the configuration file to read.")
+	port          = flag.Uint("port", 0, "UDP port we listen on for syslog formatted messages.")
+	autodelete    = flag.Bool("autodelete", false, "Autodelete entries when they expire. Aka, don't trust Mikrotik to do it for us.")
+	blocktime     = flag.Duration("blocktime", 0, "Set the life time for dynamically managed entries.")
+	debug         = flag.Bool("debug", false, "Be absolutely staggering in our logging.")
+	verbose       = flag.Bool("verbose", false, "Be more verbose in our logging.")
+	configchanged = flag.Bool("configchange", false, "Exit process when config file changes.")
 
 	cfg Config
 )
@@ -62,6 +64,25 @@ func main() {
 	cfg, err = newConfigFile(*filename, uint16(*port), Duration(*blocktime), *autodelete, *verbose)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if *configchanged {
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go func() {
+			for {
+				select {
+				case <-watcher.Event:
+					os.Exit(0)
+				case <-watcher.Error:
+					os.Exit(1)
+				}
+			}
+		}()
+		if err = watcher.Watch(*filename); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	// Open connections to each mikrotik and build a list of the unique
