@@ -8,7 +8,7 @@ User=root
 LimitNOFILE=16000
 Restart=always
 RestartSec=5
-ExecStart=/usr/local/sbin/mikrotik-fwban
+ExecStart=/usr/local/sbin/mikrotik-fwban --configchange
 
 [Install]
 WantedBy=multi-user.target
