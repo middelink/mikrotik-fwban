@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/google/gops"
+  packages = ["agent","internal","signal"]
+  revision = "57e77c5c37da1f4e1af49f9d1fe760f146c1579e"
+  version = "v0.3.2"
+
+[[projects]]
   name = "github.com/howeyc/fsnotify"
   packages = ["."]
   revision = "441bbc86b167f3c1f4786afae9931403b99fdacf"
@@ -12,6 +18,12 @@
   name = "github.com/jeromer/syslogparser"
   packages = [".","rfc3164","rfc5424"]
   revision = "0e4ae46ea3f08de351074b643d649d5d00661a3c"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/kardianos/osext"
+  packages = ["."]
+  revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
   name = "gopkg.in/gcfg.v1"
@@ -35,11 +47,11 @@
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "25c4ec802a7d637f88d584ab26798e94ad14c13b"
+  revision = "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "dadd3f03159d1ae57119db271783f6ca2d0871c49c136901cd6c03a986c0a765"
+  inputs-digest = "70623d07dae803bb1c84f59ebfbb92ad070a917853fd8f53e8d9a14b57f6383f"
   solver-name = "gps-cdcl"
   solver-version = 1

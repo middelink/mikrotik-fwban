@@ -26,6 +26,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/gops/agent"
 	"github.com/howeyc/fsnotify"
 	"github.com/jeromer/syslogparser"
 	"github.com/jeromer/syslogparser/rfc3164"
@@ -65,6 +66,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Start the gops diagnostic agent.
+	if err := agent.Listen(&agent.Options{}); err != nil {
+		log.Fatal(err)
+	}
+
 	if *configchanged {
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
