@@ -85,6 +85,7 @@ func (b BlackIP) String() string {
 // between the rest of the program and the Mikrotik.
 type Mikrotik struct {
 	client *ros.Client
+	lock   sync.RWMutex // protect AddIP/DelIP racing against AutoDelete
 
 	Name string
 
@@ -95,10 +96,10 @@ type Mikrotik struct {
 	hasData chan struct{}
 	banlist string
 
-	sync.RWMutex
-	dynlist   []BlackIP
-	blacklist []BlackIP
-	whitelist []BlackIP
+	sync.RWMutex // protect maps
+	dynlist      []BlackIP
+	blacklist    []BlackIP
+	whitelist    []BlackIP
 }
 
 // NewMikrotik returns an initialized Mikrotik object.
@@ -227,7 +228,6 @@ addresslist:
 		go func(mt *Mikrotik) {
 			var oldest time.Time
 			var oldestEntry *BlackIP
-		finished:
 			for {
 				mt.RLock()
 				if len(mt.dynlist) != 0 {
@@ -250,7 +250,7 @@ addresslist:
 						if *debug {
 							log.Printf("%s: Got close, stopping AutoDelete goroutine", mt.Name)
 						}
-						break finished
+						return
 					}
 					if *debug {
 						log.Printf("%s: Received new data indication", mt.Name)
@@ -261,11 +261,12 @@ addresslist:
 						if *debug {
 							log.Printf("%s: Deleting old dynlist entry", mt.Name)
 						}
+						mt.Lock()
 						err = mt.DelIP(*oldestEntry)
 						if err != nil {
+							mt.Unlock()
 							log.Fatalln(mt.Name, err)
 						}
-						mt.Lock()
 						mt.dynlist = mt.dynlist[1:]
 						mt.Unlock()
 					}
@@ -354,6 +355,10 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: DelIP(%s)", mt.Name, ip.String())
 	}
+	// Protect against races
+	mt.lock.Lock()
+	defer mt.lock.Unlock()
+
 	selector := fmt.Sprintf("=.id=%s", ip.ID)
 	var err error
 	if ip.Net.IP.To4() != nil {
@@ -375,6 +380,9 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: AddIP(%s/%v)", mt.Name, ip.String(), duration)
 	}
+	// Protect against races
+	mt.lock.Lock()
+	defer mt.lock.Unlock()
 
 	// For permanent members skip the built-in white/blacklist checking
 	if duration != 0 {
@@ -454,5 +462,7 @@ func (mt *Mikrotik) Close() {
 
 // GetIPs returns the current list of blacklisted IPs.
 func (mt *Mikrotik) GetIPs() (r []BlackIP) {
-	return mt.dynlist[:]
+	mt.Lock()
+	defer mt.Unlock()
+	return append([]BlackIP(nil), mt.dynlist...)
 }
