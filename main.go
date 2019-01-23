@@ -68,7 +68,7 @@ func main() {
 	}
 
 	// Start the gops diagnostic agent.
-	if err := agent.Listen(&agent.Options{}); err != nil {
+	if err := agent.Listen(agent.Options{}); err != nil {
 		log.Fatal(err)
 	}
 
