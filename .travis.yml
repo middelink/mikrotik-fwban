@@ -1,20 +1,34 @@
 language: go
 
-go:
-  - 1.11.x
-  - master
+matrix:
+  include:
+  - go: "1.10.x"
+    script:
+      - go vet -v .
+      - $HOME/gopath/bin/goveralls -service=travis-ci
+  - go: "1.11.x"
+    script:
+      - go vet -v -mod=vendor .
+      - $HOME/gopath/bin/goveralls -service=travis-ci
+  - go: "1.12.x"
+    script:
+      - go vet -v -mod=vendor .
+      - $HOME/gopath/bin/goveralls -service=travis-ci
+  - go: "master"
+    script:
+      - go vet -v -mod=vendor .
+      - $HOME/gopath/bin/goveralls -service=travis-ci
 
 branches:
   only:
     - master
 
 before_install:
-  - go get github.com/mattn/goveralls
-
-install:
   - go version
   - go env
+  - go get github.com/mattn/goveralls
 
-script:
-  - go vet -v .
-  - $HOME/gopath/bin/goveralls -service=travis-ci
+env:
+  - GO111MODULE=on
+
+install: true
