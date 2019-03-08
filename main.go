@@ -134,14 +134,11 @@ func main() {
 
 	sigs := make(chan os.Signal, 1)
 	go func() {
-		for {
-			select {
-			case <-sigs:
-				log.Printf("Got signal, dumping dynlists")
-				for _, mt := range mts {
-					for i, ip := range mt.GetIPs() {
-						log.Printf("%s(%d): %s\n", mt.Name, i, ip)
-					}
+		for range sigs {
+			log.Printf("Got signal, dumping dynlists")
+			for _, mt := range mts {
+				for i, ip := range mt.GetIPs() {
+					log.Printf("%s(%d): %s\n", mt.Name, i, ip)
 				}
 			}
 		}

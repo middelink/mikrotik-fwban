@@ -256,7 +256,7 @@ addresslist:
 						log.Printf("%s: Received new data indication", mt.Name)
 					}
 					break
-				case <-time.After(oldest.Sub(time.Now())):
+				case <-time.After(time.Until(oldest)):
 					if oldestEntry != nil {
 						if *debug {
 							log.Printf("%s: Deleting old dynlist entry", mt.Name)
