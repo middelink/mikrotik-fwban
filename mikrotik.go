@@ -276,11 +276,21 @@ func (mt *Mikrotik) toDuration(mapname string, dict map[string]string) time.Time
 	return time.Time{} // permanent entry
 }
 
+// Start a watchdog. if you not call the cancel function before it expires,
+// bad things will happen. Intentionally.
+func (mt *Mikrotik) startWatchdog(duration time.Duration) func() {
+	tmr := time.AfterFunc(duration, func() { panic(fmt.Sprintf("%s: timeout during communication", mt.Name)) })
+	return func() { tmr.Stop() }
+}
+
 func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 	var ips []BlackIP
 
+	cancel := mt.startWatchdog(5 * time.Second)
+	defer cancel()
 	list := fmt.Sprintf("?list=%s", mapname)
 	reply, err := mt.client.Run("/ip/firewall/address-list/getall", list)
+	cancel()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -291,7 +301,10 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 			ips = append(ips, BlackIP{*ip, duration, re.Map[".id"]})
 		}
 	}
+	cancel = mt.startWatchdog(5 * time.Second)
+	defer cancel()
 	reply, err = mt.client.Run("/ipv6/firewall/address-list/getall", list)
+	cancel()
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -316,17 +329,20 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: DelIP(%s)", mt.Name, ip.String())
 	}
-	// Protect against races
+	// Protect against racing DelIP/AddIPs
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
 
 	selector := fmt.Sprintf("=.id=%s", ip.ID)
 	var err error
+	cancel := mt.startWatchdog(250 * time.Second)
+	defer cancel()
 	if ip.Net.IP.To4() != nil {
 		_, err = mt.client.Run("/ip/firewall/address-list/remove", selector)
 	} else {
 		_, err = mt.client.Run("/ipv6/firewall/address-list/remove", selector)
 	}
+	cancel()
 	return err
 }
 
@@ -341,7 +357,7 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: AddIP(%s/%v)", mt.Name, ip.String(), duration)
 	}
-	// Protect against races
+	// Protect against racing DelIP/AddIPs
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
 
@@ -387,9 +403,12 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 	if comment != "" {
 		args = append(args, fmt.Sprintf("=comment=%s", comment))
 	}
+	cancel := mt.startWatchdog(250 * time.Second)
+	defer cancel()
 	var err error
 	var reply *ros.Reply
 	reply, err = mt.client.RunArgs(args)
+	cancel()
 	if err != nil {
 		if strings.Contains(err.Error(), "already have") {
 			return nil
