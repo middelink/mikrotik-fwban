@@ -102,7 +102,6 @@ func main() {
 			continue
 		}
 		mt, err := NewMikrotik(k, v)
-		//mt, err := NewMikrotik(k, v.Address, v.User, v.Passwd, v.BanList, v.Whitelist, v.Blacklist)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -175,7 +174,7 @@ func main() {
 					log.Printf("MATCH!!! %s\n", string(pkt[:n]))
 					log.Printf("%#v\n", res[1:])
 				}
-				if ip := parseCIDR(res[re.IPIndex]); ip != nil {
+				if ip := parseCIDR(res[re.IPIndex], cfg.Settings.Verbose); ip != nil {
 					for _, mt := range mts {
 						if err = mt.AddIP(*ip, cfg.Settings.BlockTime, logparts[msg].(string)); err != nil {
 							log.Fatalln(err)

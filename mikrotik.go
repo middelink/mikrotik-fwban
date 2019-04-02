@@ -27,45 +27,6 @@ func (a ByAge) Len() int           { return len(a) }
 func (a ByAge) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByAge) Less(i, j int) bool { return a[i].Dead.Before(a[j].Dead) }
 
-// ParseCIDR parses s as a CIDR notation IP address and mask,
-// like "192.168.100.1/24" or "2001:DB8::/48", as defined in
-// RFC 4632 and RFC 4291.
-//
-// It returns the network implied by the IP and mask.
-// For example, ParseCIDR("192.168.100.1/16") returns
-// the IP address 192.168.100.0 and the mask 255.255.255.0.
-func parseCIDR(s string) *net.IPNet {
-	//log.Printf("s: %#v\n", s)
-	i := strings.Index(s, "/")
-	if i < 0 {
-		ip := net.ParseIP(s)
-		if ip == nil {
-			return nil
-		}
-		iplen := net.IPv4len
-		if len(ip.To4()) == 0 {
-			iplen = net.IPv6len
-		}
-		m := net.CIDRMask(8*iplen, 8*iplen)
-		return &net.IPNet{IP: ip, Mask: m}
-	}
-	addr, mask := s[:i], s[i+1:]
-	iplen := net.IPv4len
-	ip := net.ParseIP(addr)
-	if ip.To4() == nil {
-		iplen = net.IPv6len
-	}
-	n, err := strconv.Atoi(mask)
-	if ip == nil || err != nil || n < 0 || n > 8*iplen {
-		return nil
-	}
-	m := net.CIDRMask(n, 8*iplen)
-	if cfg.Settings.Verbose && !ip.Mask(m).Equal(ip) {
-		log.Printf("WARNING: prefix/ip %s has hostbits set\n", s)
-	}
-	return &net.IPNet{IP: ip.Mask(m), Mask: m}
-}
-
 // BlackIP is a structure holding a single IP (Prefix really). It contains
 // a timeout value, where IsZero means it has no timeout, aka a permanent
 // entry. ID is used to store the row identifier Mikrotik gives us when
@@ -134,7 +95,7 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 			} else {
 				mt.whitelist = append(mt.whitelist, mt.getAddresslist(v[1:])...)
 			}
-		} else if ip := parseCIDR(v); ip != nil {
+		} else if ip := parseCIDR(v, cfg.Settings.Verbose); ip != nil {
 			mt.whitelist = append(mt.whitelist, BlackIP{*ip, time.Time{}, ".gcfg"})
 		} else {
 			log.Fatalf("%s: Unable to parse whitelist prefix/ip %s", mt.Name, v)
@@ -148,7 +109,7 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 			} else {
 				mt.blacklist = append(mt.blacklist, mt.getAddresslist(v[1:])...)
 			}
-		} else if ip := parseCIDR(v); ip != nil {
+		} else if ip := parseCIDR(v, cfg.Settings.Verbose); ip != nil {
 			mt.blacklist = append(mt.blacklist, BlackIP{*ip, time.Time{}, ".gcfg"})
 		} else {
 			log.Fatalf("%s: Unable to parse blacklist prefix/ip %s", mt.Name, v)
@@ -324,7 +285,7 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 		log.Fatalln(err)
 	}
 	for _, re := range reply.Re {
-		ip := parseCIDR(re.Map["address"])
+		ip := parseCIDR(re.Map["address"], cfg.Settings.Verbose)
 		if ip != nil {
 			duration := mt.toDuration(mapname, re.Map)
 			ips = append(ips, BlackIP{*ip, duration, re.Map[".id"]})
@@ -335,7 +296,7 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 		log.Fatalln(err)
 	}
 	for _, re := range reply.Re {
-		ip := parseCIDR(re.Map["address"])
+		ip := parseCIDR(re.Map["address"], cfg.Settings.Verbose)
 		if ip != nil {
 			duration := mt.toDuration(mapname, re.Map)
 			ips = append(ips, BlackIP{*ip, duration, re.Map[".id"]})

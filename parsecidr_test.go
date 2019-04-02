@@ -31,20 +31,19 @@ func TestParseCIDR(t *testing.T) {
 	}
 	cfg.Settings.Verbose = true
 	for _, d := range testdata {
-		ip := parseCIDR(d.str)
-		//t.Logf("ok=%v, str=%v, ip=%v", d.expectOk, d.str, ip)
-		if ip == nil {
-			if d.expectOk {
+		t.Run(d.str, func(t *testing.T) {
+			ip := parseCIDR(d.str, false)
+			//t.Logf("ok=%v, str=%v, ip=%v", d.expectOk, d.str, ip)
+			if ip == nil && d.expectOk {
 				t.Fatalf("parseCIDR(%q) failed, got nil, expected %q", d.str, d.expect)
 			}
-			continue
-		} else if !d.expectOk {
-			t.Fatalf("parseCIDR(%q) failed, got %q, expected nil", d.str, d.expect)
-			continue
-		}
-		if ip.String() != d.expect {
-			t.Fatalf("parseCIDR(%q) failed, got %q, expected %q", d.str, ip.String(), d.expect)
-			continue
-		}
+			if ip != nil && !d.expectOk {
+				t.Fatalf("parseCIDR(%q) failed, got %q, expected nil", d.str, d.expect)
+			}
+
+			if ip != nil && ip.String() != d.expect {
+				t.Fatalf("parseCIDR(%q) failed, got %q, expected %q", d.str, ip.String(), d.expect)
+			}
+		})
 	}
 }
