@@ -35,7 +35,8 @@ type Config struct {
 		Port       uint16
 	}
 	RegExps struct {
-		RE []string `json:",omitempty"`
+		RE      []string `json:",omitempty"`
+		Test_RE []string `json:",omitempty"`
 	}
 	re       []regexps
 	Mikrotik map[string]*ConfigMikrotik `json:",omitempty"`
@@ -122,6 +123,19 @@ func (c *Config) setupREs() error {
 		c.re = append(c.re, regexps{re, index})
 		if index < 0 {
 			return fmt.Errorf("missing named group `IP` in regexp %q", v)
+		}
+	}
+
+	for _, v := range c.RegExps.Test_RE {
+		found := false
+		for _, re := range c.re {
+			if res := re.RE.FindStringSubmatch(v); len(res) > 0 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("test_re failed to match any re %q", v)
 		}
 	}
 
