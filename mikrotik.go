@@ -46,7 +46,7 @@ func (b BlackIP) String() string {
 // between the rest of the program and the Mikrotik.
 type Mikrotik struct {
 	client *ros.Client
-	lock   sync.RWMutex // protect AddIP/DelIP racing against AutoDelete
+	lock   sync.Mutex // protect AddIP/DelIP racing against AutoDelete.
 
 	Name string
 
@@ -57,7 +57,7 @@ type Mikrotik struct {
 	hasData chan struct{}
 	banlist string
 
-	sync.RWMutex // protect maps
+	sync.RWMutex // Protect maps.
 	dynlist      []BlackIP
 	blacklist    []BlackIP
 	whitelist    []BlackIP
@@ -77,7 +77,7 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		Passwd:  c.Passwd,
 		banlist: c.BanList,
 	}
-	// Open the connection
+	// Open the connection.
 	var err error
 	mt.client, err = ros.Dial(mt.Address, mt.User, mt.Passwd)
 	if err != nil {
@@ -87,7 +87,7 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		mt.hasData = make(chan struct{})
 	}
 
-	// Setup the whitelist
+	// Setup the whitelist.
 	for _, v := range c.Whitelist {
 		if strings.HasPrefix(v, "@") {
 			if v[1:] == mt.banlist {
@@ -116,25 +116,25 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		}
 	}
 
-	// Fetch and split the managed blacklist in permanent and dynamic members
+	// Fetch and split the managed blacklist in permanent and dynamic members.
 	blackmap := make(map[string]*BlackIP)
 	for i, v := range mt.blacklist {
 		blackmap[v.Net.String()] = &mt.blacklist[i]
 	}
 
-	// Check if the whitelist entries are not in the permanent blacklist
+	// Check if the whitelist entries are not in the permanent blacklist.
 	for _, v := range mt.whitelist {
 		if _, ok := blackmap[v.Net.String()]; ok {
 			log.Fatalf("%s: Conflicting whitelist/blacklist entry %s", mt.Name, v.Net.String())
 		}
 	}
 
-	// Now check every entry from the managed dynlist
+	// Now check every entry from the managed dynlist.
 addresslist:
 	for _, v := range mt.getAddresslist(mt.banlist) {
 		for _, w := range mt.whitelist {
 			if w.Net.Contains(v.Net.IP) {
-				// Whitelisted entries should never be on the dynlist
+				// Whitelisted entries should never be on the dynlist.
 				log.Printf("%s(%s): Deleting whitelisted entry", mt.Name, mt.banlist)
 				err = mt.DelIP(v)
 				if err != nil {
@@ -145,9 +145,9 @@ addresslist:
 			}
 		}
 		if v.Dead.IsZero() {
-			// Permanent entry, must (literally) exist in blacklist
+			// Permanent entry, must (literally) exist in blacklist.
 			if _, ok := blackmap[v.Net.String()]; ok {
-				// In blacklist, mark as found
+				// In blacklist, mark as found.
 				delete(blackmap, v.Net.String())
 			} else {
 				// Not in permanent blacklist, but permanent.
@@ -159,7 +159,7 @@ addresslist:
 				}
 			}
 		} else {
-			// Temporary entry, not expected to exist in permanent blacklist
+			// Temporary entry, not expected to exist in permanent blacklist.
 			if _, ok := blackmap[v.Net.String()]; ok {
 				// Oops, in permanent blacklist, remove it for now as
 				// it will be added back later as a permanent entry.
@@ -169,12 +169,12 @@ addresslist:
 					log.Fatalln(mt.Name, err)
 				}
 			} else {
-				// Dynamic entry
+				// Dynamic entry.
 				mt.dynlist = append(mt.dynlist, v)
 			}
 		}
 	}
-	// Add the missing permanent blacklist entries
+	// Add the remaining (missing) permanent blacklist entries.
 	for _, v := range blackmap {
 		err := mt.AddIP(v.Net, 0, "")
 		if err != nil {
@@ -273,7 +273,7 @@ func (mt *Mikrotik) toDuration(mapname string, dict map[string]string) time.Time
 	if *debug {
 		log.Printf("%s(%s): static entry, address=%s\n", mt.Name, mapname, dict["address"])
 	}
-	return time.Time{} // permanent entry
+	return time.Time{} // permanent entry.
 }
 
 // Start a watchdog. if you not call the cancel function before it expires,
@@ -329,7 +329,7 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: DelIP(%s)", mt.Name, ip.String())
 	}
-	// Protect against racing DelIP/AddIPs
+	// Protect against racing DelIP/AddIPs.
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
 
@@ -357,7 +357,7 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: AddIP(%s/%v)", mt.Name, ip.String(), duration)
 	}
-	// Protect against racing DelIP/AddIPs
+	// Protect against racing DelIP/AddIPs.
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
 
@@ -370,7 +370,7 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 				return nil
 			}
 		}
-		// Check if it is on the permanent blacklist
+		// Check if it is on the permanent blacklist.
 		for _, v := range mt.blacklist {
 			if v.Net.Contains(ip.IP) {
 				log.Printf("%s: AddIP(%v) is on the admin blacklist, skipped", mt.Name, ip.IP)
@@ -388,7 +388,7 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 		mt.RUnlock()
 	}
 
-	// Do the physical interaction with the MT
+	// Do the physical interaction with the MT.
 	args := []string{
 		"/ip/firewall/address-list/add",
 		fmt.Sprintf("=address=%s", ip.String()),
@@ -423,12 +423,13 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 		return fmt.Errorf("missing `ret`")
 	}
 
-	// Add the entry to the dynlist if it has a timeout
+	// Add the entry to the dynlist if it has a timeout.
 	if duration != 0 && cfg.Settings.AutoDelete {
 		mt.Lock()
 		mt.dynlist = append(mt.dynlist, BlackIP{ip, time.Now().Add(time.Duration(duration)), id})
 		sort.Sort(ByAge(mt.dynlist))
 		mt.Unlock()
+		// Tell auto deleter new data has arrived.
 		mt.hasData <- struct{}{}
 	}
 	return nil
