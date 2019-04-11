@@ -1,0 +1,14 @@
+in: |
+        [settings]
+
+        [regexps]
+        re = "Dummy regexp for (?P<IP>\\S+)"
+        test-re = "Something not matched"
+
+        [Mikrotik "MT-1"]
+        address = 1.2.3.4
+        user = user
+        passwd = passwd
+
+err:
+        - 'test_re failed to match any re "Something not matched"'
