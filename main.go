@@ -169,14 +169,15 @@ func main() {
 		}
 		logparts := parser.Dump()
 		for _, re := range cfg.re {
-			if res := re.RE.FindStringSubmatch(logparts[msg].(string)); len(res) > 0 {
+			text := strings.TrimSpace(logparts[msg].(string))
+			if res := re.RE.FindStringSubmatch(text); len(res) > 0 {
 				if *debug {
 					log.Printf("MATCH!!! %s\n", string(pkt[:n]))
 					log.Printf("%#v\n", res[1:])
 				}
 				if ip := parseCIDR(res[re.IPIndex], cfg.Settings.Verbose); ip != nil {
 					for _, mt := range mts {
-						if err = mt.AddIP(*ip, cfg.Settings.BlockTime, logparts[msg].(string)); err != nil {
+						if err = mt.AddIP(*ip, cfg.Settings.BlockTime, text); err != nil {
 							log.Fatalln(err)
 							continue
 						}
