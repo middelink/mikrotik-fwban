@@ -106,12 +106,24 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		return nil, err
 	}
 
-	if cfg.Settings.AutoDelete {
-		mt.hasData = make(chan struct{})
+	if err := mt.populateBanlist(c.Whitelist, c.Blacklist); err != nil {
+		mt.client.Close()
+		return nil, err
 	}
 
+	if cfg.Settings.AutoDelete {
+		// Start a go routine to monitor the dynlist for entries to delete.
+		// It effectively implements a priority queue on the Dead time.
+		// From now on we need locking if we mess with the dynlist.
+		mt.hasData = make(chan struct{})
+		go mt.autoDelete()
+	}
+	return mt, nil
+}
+
+func (mt *Mikrotik) populateBanlist(whitelist, blacklist []string) error {
 	// Setup the whitelist.
-	for _, v := range c.Whitelist {
+	for _, v := range whitelist {
 		if strings.HasPrefix(v, "@") {
 			if v[1:] == mt.banlist {
 				log.Printf("%s: Skipping the managed blacklist %s", mt.Name, v)
@@ -121,11 +133,11 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		} else if ip := parseCIDR(v, cfg.Settings.Verbose); ip != nil {
 			mt.whitelist = append(mt.whitelist, BlackIP{*ip, time.Time{}, ".gcfg"})
 		} else {
-			log.Fatalf("%s: Unable to parse whitelist prefix/ip %s", mt.Name, v)
+			return fmt.Errorf("%s: Unable to parse whitelist prefix/ip %s", mt.Name, v)
 		}
 	}
 	// Fill the blacklist, aka permanent blacklist members.
-	for _, v := range c.Blacklist {
+	for _, v := range blacklist {
 		if strings.HasPrefix(v, "@") {
 			if v[1:] == mt.banlist {
 				log.Printf("%s: Skipping the managed blacklist %s", mt.Name, v)
@@ -135,130 +147,116 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		} else if ip := parseCIDR(v, cfg.Settings.Verbose); ip != nil {
 			mt.blacklist = append(mt.blacklist, BlackIP{*ip, time.Time{}, ".gcfg"})
 		} else {
-			log.Fatalf("%s: Unable to parse blacklist prefix/ip %s", mt.Name, v)
+			return fmt.Errorf("%s: Unable to parse blacklist prefix/ip %s", mt.Name, v)
 		}
 	}
 
-	// Fetch and split the managed blacklist in permanent and dynamic members.
+	// Create a map and prefill it with the permanent blacklist.
 	blackmap := make(map[string]*BlackIP)
 	for i, v := range mt.blacklist {
 		blackmap[v.Net.String()] = &mt.blacklist[i]
 	}
 
-	// Check if the whitelist entries are not in the permanent blacklist.
+	// Check if the whitelist entries are not on the permanent blacklist.
 	for _, v := range mt.whitelist {
 		if _, ok := blackmap[v.Net.String()]; ok {
-			log.Fatalf("%s: Conflicting whitelist/blacklist entry %s", mt.Name, v.Net.String())
+			return fmt.Errorf("%s: Conflicting whitelist/blacklist entry %s", mt.Name, v.Net.String())
 		}
 	}
 
 	// Now check every entry from the managed dynlist.
 addresslist:
 	for _, v := range mt.getAddresslist(mt.banlist) {
+		// Whitelisted entries should never be on the banlist.
 		for _, w := range mt.whitelist {
 			if w.Net.Contains(v.Net.IP) {
-				// Whitelisted entries should never be on the dynlist.
-				log.Printf("%s(%s): Deleting whitelisted entry", mt.Name, mt.banlist)
-				err = mt.DelIP(v)
-				if err != nil {
-					log.Fatalln(mt.Name, err)
+				log.Printf("%s(%s): Deleting whitelisted entry %s", mt.Name, mt.banlist, v.Net.String())
+				if err := mt.DelIP(v); err != nil {
+					return err
 				}
-				delete(blackmap, v.Net.String())
+				// No use checking the rest, it's dead Jim.
 				continue addresslist
 			}
 		}
 		if v.Dead.IsZero() {
-			// Permanent entry, must (literally) exist in blacklist.
+			// Permanent entry, must (literally) exist in permanent blacklist.
 			if _, ok := blackmap[v.Net.String()]; ok {
 				// In blacklist, mark as found.
 				delete(blackmap, v.Net.String())
 			} else {
-				// Not in permanent blacklist, but permanent.
-				// Remove immediately.
-				log.Printf("%s: Deleting unwanted permanent blacklist entry", mt.Name)
-				err = mt.DelIP(v)
-				if err != nil {
-					log.Fatalln(mt.Name, err)
+				// Remove this permanent entry as it is not on permanent blacklist.
+				log.Printf("%s: Deleting unwanted permanent blacklist entry %s", mt.Name, v.Net.String())
+				if err := mt.DelIP(v); err != nil {
+					return err
 				}
 			}
 		} else {
-			// Temporary entry, not expected to exist in permanent blacklist.
+			// Dynamic entry, not expected to exist in permanent blacklist.
 			if _, ok := blackmap[v.Net.String()]; ok {
-				// Oops, in permanent blacklist, remove it for now as
-				// it will be added back later as a permanent entry.
-				log.Println("Deleting unwanted dynamic blacklist entry")
-				err = mt.DelIP(v)
-				if err != nil {
-					log.Fatalln(mt.Name, err)
+				// Remove this dynamic entry as it is on the permanent blacklist.
+				// It will be added back later as a permanent entry.
+				log.Printf("%s: Deleting unwanted dynamic blacklist entry %s", mt.Name, v.Net.String())
+				if err := mt.DelIP(v); err != nil {
+					return err
 				}
 			} else {
-				// Dynamic entry.
+				// Dynamic entry. All good.
 				mt.dynlist = append(mt.dynlist, v)
 			}
 		}
 	}
 	// Add the remaining (missing) permanent blacklist entries.
 	for _, v := range blackmap {
-		err := mt.AddIP(v.Net, 0, "")
-		if err != nil {
-			log.Fatalln(err)
+		if err := mt.AddIP(v.Net, 0, ""); err != nil {
+			return err
 		}
 	}
 
-	if cfg.Settings.AutoDelete {
-		// Start a go function to monitor the dynlist for entries to delete.
-		// It effectively implements a priority queue on the Dead time.
-		// From now on we need locking if we mess with the dynlist.
-		go func(mt *Mikrotik) {
-			var oldest time.Time
-			var oldestEntry *BlackIP
-			for {
-				mt.RLock()
-				if len(mt.dynlist) != 0 {
-					oldest = mt.dynlist[0].Dead
-					oldestEntry = &mt.dynlist[0]
-				} else {
-					if *debug {
-						log.Printf("%s: No dynlist entries found to expire, retry in an hour", mt.Name)
-					}
-					oldest = time.Now().Add(time.Hour)
-					oldestEntry = nil
-				}
-				mt.RUnlock()
+	return nil
+}
+
+func (mt *Mikrotik) autoDelete() {
+	var oldest time.Time
+	var oldestEntry *BlackIP
+	for {
+		mt.RLock()
+		if len(mt.dynlist) != 0 {
+			oldest = mt.dynlist[0].Dead
+			oldestEntry = &mt.dynlist[0]
+		} else {
+			if *debug {
+				log.Printf("%s: No dynlist entries found to expire, retry in an hour", mt.Name)
+			}
+			oldest = time.Now().Add(time.Hour)
+			oldestEntry = nil
+		}
+		mt.RUnlock()
+		if *debug {
+			log.Printf("%s: next event: %v", mt.Name, oldest)
+		}
+		select {
+		case _, more := <-mt.hasData:
+			if !more {
 				if *debug {
-					log.Printf("%s: next event: %v", mt.Name, oldest)
+					log.Printf("%s: Got close, stopping AutoDelete goroutine", mt.Name)
 				}
-				select {
-				case _, more := <-mt.hasData:
-					if !more {
-						if *debug {
-							log.Printf("%s: Got close, stopping AutoDelete goroutine", mt.Name)
-						}
-						return
-					}
-					if *debug {
-						log.Printf("%s: Received new data indication", mt.Name)
-					}
-					break
-				case <-time.After(time.Until(oldest)):
-					if oldestEntry != nil {
-						if *debug {
-							log.Printf("%s: Deleting old dynlist entry", mt.Name)
-						}
-						mt.Lock()
-						err = mt.DelIP(*oldestEntry)
-						if err != nil {
-							mt.Unlock()
-							log.Fatalln(mt.Name, err)
-						}
-						mt.dynlist = mt.dynlist[1:]
-						mt.Unlock()
-					}
+				return
+			}
+			if *debug {
+				log.Printf("%s: Received new data indication", mt.Name)
+			}
+			break
+		case <-time.After(time.Until(oldest)):
+			if oldestEntry != nil {
+				if *debug {
+					log.Printf("%s: Deleting oldest dynlist entry", mt.Name)
+				}
+				if err := mt.DelIP(*oldestEntry); err != nil {
+					log.Fatalln(mt.Name, err)
 				}
 			}
-		}(mt)
+		}
 	}
-	return mt, nil
 }
 
 func (mt *Mikrotik) toDuration(mapname string, dict map[string]string) time.Time {
@@ -356,6 +354,14 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 		_, err = mt.client.Run("/ipv6/firewall/address-list/remove", selector)
 	}
 	cancel()
+	if err == nil && cfg.Settings.AutoDelete {
+		mt.Lock()
+		// We expect to be called with the oldest entry. Delete that.
+		if mt.dynlist[0].ID == ip.ID {
+			mt.dynlist = mt.dynlist[1:]
+		}
+		mt.Unlock()
+	}
 	return err
 }
 
@@ -442,7 +448,11 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 		sort.Sort(ByAge(mt.dynlist))
 		mt.Unlock()
 		// Tell auto deleter new data has arrived.
-		mt.hasData <- struct{}{}
+		select {
+		case mt.hasData <- struct{}{}:
+		default:
+			log.Printf("hasData full, deadlock?")
+		}
 	}
 	return nil
 }
@@ -455,7 +465,7 @@ func (mt *Mikrotik) Close() {
 
 // GetIPs returns the current list of blacklisted IPs.
 func (mt *Mikrotik) GetIPs() (r []BlackIP) {
-	mt.Lock()
-	defer mt.Unlock()
+	mt.RLock()
+	defer mt.RUnlock()
 	return append([]BlackIP(nil), mt.dynlist...)
 }
