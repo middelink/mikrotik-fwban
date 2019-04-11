@@ -45,6 +45,7 @@ func (b BlackIP) String() string {
 // details but also the API connection to the Mikrotik. It acts as a cache
 // between the rest of the program and the Mikrotik.
 type Mikrotik struct {
+	conn   net.Conn
 	client *ros.Client
 	lock   sync.Mutex // protect AddIP/DelIP racing against AutoDelete.
 
@@ -63,6 +64,13 @@ type Mikrotik struct {
 	whitelist    []BlackIP
 }
 
+// Setup a deadline on the connection to the Mikrotik. It returns a cancel
+// function, resetting the idle deadline on the connection.
+func (mt *Mikrotik) startDeadline(duration time.Duration) func() {
+	mt.conn.SetDeadline(time.Now().Add(duration))
+	return func() { mt.conn.SetDeadline(time.Time{}) }
+}
+
 // NewMikrotik returns an initialized Mikrotik object.
 func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 	if *debug {
@@ -77,12 +85,27 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		Passwd:  c.Passwd,
 		banlist: c.BanList,
 	}
-	// Open the connection.
+	// Open the connection, use our own code for this, as we need
+	// access to it for setting deadlines.
 	var err error
-	mt.client, err = ros.Dial(mt.Address, mt.User, mt.Passwd)
+	mt.conn, err = net.DialTimeout("tcp", mt.Address, time.Minute)
 	if err != nil {
 		return nil, err
 	}
+	mt.client, err = ros.NewClient(mt.conn)
+	if err != nil {
+		mt.conn.Close()
+		return nil, err
+	}
+
+	cancel := mt.startDeadline(5 * time.Second)
+	err = mt.client.Login(mt.User, mt.Passwd)
+	cancel()
+	if err != nil {
+		mt.client.Close()
+		return nil, err
+	}
+
 	if cfg.Settings.AutoDelete {
 		mt.hasData = make(chan struct{})
 	}
@@ -276,18 +299,10 @@ func (mt *Mikrotik) toDuration(mapname string, dict map[string]string) time.Time
 	return time.Time{} // permanent entry.
 }
 
-// Start a watchdog. if you not call the cancel function before it expires,
-// bad things will happen. Intentionally.
-func (mt *Mikrotik) startWatchdog(duration time.Duration) func() {
-	tmr := time.AfterFunc(duration, func() { panic(fmt.Sprintf("%s: timeout during communication", mt.Name)) })
-	return func() { tmr.Stop() }
-}
-
 func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 	var ips []BlackIP
 
-	cancel := mt.startWatchdog(5 * time.Second)
-	defer cancel()
+	cancel := mt.startDeadline(5 * time.Second)
 	list := fmt.Sprintf("?list=%s", mapname)
 	reply, err := mt.client.Run("/ip/firewall/address-list/getall", list)
 	cancel()
@@ -301,8 +316,7 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 			ips = append(ips, BlackIP{*ip, duration, re.Map[".id"]})
 		}
 	}
-	cancel = mt.startWatchdog(5 * time.Second)
-	defer cancel()
+	cancel = mt.startDeadline(5 * time.Second)
 	reply, err = mt.client.Run("/ipv6/firewall/address-list/getall", list)
 	cancel()
 	if err != nil {
@@ -335,8 +349,7 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 
 	selector := fmt.Sprintf("=.id=%s", ip.ID)
 	var err error
-	cancel := mt.startWatchdog(250 * time.Second)
-	defer cancel()
+	cancel := mt.startDeadline(5 * time.Second)
 	if ip.Net.IP.To4() != nil {
 		_, err = mt.client.Run("/ip/firewall/address-list/remove", selector)
 	} else {
@@ -403,8 +416,7 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 	if comment != "" {
 		args = append(args, fmt.Sprintf("=comment=%s", comment))
 	}
-	cancel := mt.startWatchdog(250 * time.Second)
-	defer cancel()
+	cancel := mt.startDeadline(5 * time.Second)
 	var err error
 	var reply *ros.Reply
 	reply, err = mt.client.RunArgs(args)
