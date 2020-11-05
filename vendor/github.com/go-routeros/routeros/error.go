@@ -3,7 +3,7 @@ package routeros
 import (
 	"errors"
 
-	"gopkg.in/routeros.v2/proto"
+	"github.com/go-routeros/routeros/proto"
 )
 
 var (

@@ -1,3 +1,7 @@
+# github.com/go-routeros/routeros v0.0.0-20190727190637-9419d2537732
+## explicit
+github.com/go-routeros/routeros
+github.com/go-routeros/routeros/proto
 # github.com/google/gops v0.3.5
 ## explicit
 github.com/google/gops/agent
@@ -20,10 +24,6 @@ gopkg.in/gcfg.v1
 gopkg.in/gcfg.v1/scanner
 gopkg.in/gcfg.v1/token
 gopkg.in/gcfg.v1/types
-# gopkg.in/routeros.v2 v2.0.0-20171228113335-2dc19c12445c
-## explicit
-gopkg.in/routeros.v2
-gopkg.in/routeros.v2/proto
 # gopkg.in/warnings.v0 v0.1.2
 ## explicit
 gopkg.in/warnings.v0

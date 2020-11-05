@@ -16,6 +16,7 @@ import (
 // Note that missing elements are inititalized to a sensible default.
 type ConfigMikrotik struct {
 	Disabled  bool
+	UseTLS    bool
 	Address   string
 	User      string
 	Passwd    string
@@ -35,8 +36,8 @@ type Config struct {
 		Port       uint16
 	}
 	RegExps struct {
-		RE     []string `json:",omitempty"`
-		TestRE []string `json:",omitempty"`
+		RE      []string `json:",omitempty"`
+		Test_RE []string `json:",omitempty"`
 	}
 	re       []regexps
 	Mikrotik map[string]*ConfigMikrotik `json:",omitempty"`
@@ -86,14 +87,18 @@ func (c *Config) setupDefaults() error {
 		if v.Passwd == "" {
 			return fmt.Errorf("%s: passwd is a required field", k)
 		}
-		// Add port 8728 if it was not included
+		// Add port 8728/8729 if it was not included
 		_, _, err := net.SplitHostPort(v.Address)
 		if err != nil {
 			// For anything else than missing port, bail.
 			if !strings.Contains(err.Error(), "missing port in address") {
 				return fmt.Errorf("%s: malformed address: %v", k, err)
 			}
-			v.Address = net.JoinHostPort(v.Address, "8728")
+			if v.UseTLS {
+				v.Address = net.JoinHostPort(v.Address, "8729")
+			} else {
+				v.Address = net.JoinHostPort(v.Address, "8728")
+			}
 		}
 		// set default managed addresslist name
 		if v.BanList == "" {
@@ -126,7 +131,7 @@ func (c *Config) setupREs() error {
 		}
 	}
 
-	for _, v := range c.RegExps.TestRE {
+	for _, v := range c.RegExps.Test_RE {
 		found := false
 		for _, re := range c.re {
 			if res := re.RE.FindStringSubmatch(v); len(res) > 0 {

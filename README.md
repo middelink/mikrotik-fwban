@@ -51,6 +51,7 @@ extractions, we use named capturing groups. `(?P<IP>...)`.
   Mikrotik to do it for us. Default is true.
 * `--verbose`: Be more verbose in our logging. Default is false.
 * `--debug`: Be absolutely staggering in our logging. Default is false.
+* `-version`: output version information and exit.
 
 ## Installation
 
@@ -109,4 +110,4 @@ and start this daemon at startup.
 Mikrotik-fwban uses
 [go-gcfg](https://github.com/go-gcfg/gcfg/tree/v1),
 [syslogparser](github.com/jeromer/syslogparser),
-[routeros](https://github.com/go-routeros/routeros/tree/v2)
+[routeros](https://github.com/go-routeros/routeros/tree/master)

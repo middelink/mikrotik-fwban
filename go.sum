@@ -1,3 +1,5 @@
+github.com/go-routeros/routeros v0.0.0-20190727190637-9419d2537732 h1:NPTa6THAsbxnkCvjHcdiylqTeWgZ/qg04Tct+O/Bbsk=
+github.com/go-routeros/routeros v0.0.0-20190727190637-9419d2537732/go.mod h1:em1mEqFKnoeQuQP9Sg7i26yaW8o05WwcNj7yLhrXxSQ=
 github.com/google/gops v0.3.5 h1:SIWvPLiYvy5vMwjxB3rVFTE4QBhUFj2KKWr3Xm7CKhw=
 github.com/google/gops v0.3.5/go.mod h1:pMQgrscwEK/aUSW1IFSaBPbJX82FPHWaSoJw1axQfD0=
 github.com/howeyc/fsnotify v0.9.0 h1:0gtV5JmOKH4A8SsFxG2BczSeXWWPvcMT0euZt5gDAxY=
@@ -10,8 +12,6 @@ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/gcfg.v1 v1.2.3 h1:m8OOJ4ccYHnx2f4gQwpno8nAX5OGOh7RLaaz0pj3Ogs=
 gopkg.in/gcfg.v1 v1.2.3/go.mod h1:yesOnuUOFQAhST5vPY4nbZsb/huCgGGXlipJsBn0b3o=
-gopkg.in/routeros.v2 v2.0.0-20171228113335-2dc19c12445c h1:MdF0YWpo+DT+2UE5Is7xEW4Qm0jdcfDY3fQA7c7Jf38=
-gopkg.in/routeros.v2 v2.0.0-20171228113335-2dc19c12445c/go.mod h1:dXYL5YdVb9GEWLoWK8VHdwL/SuFrNyb/hj2/CXZVT7E=
 gopkg.in/warnings.v0 v0.1.2 h1:wFXVbFY8DY5/xOe1ECiWdKCzZlxgshcYVNkBHstARME=
 gopkg.in/warnings.v0 v0.1.2/go.mod h1:jksf8JmL6Qr/oQM2OXTHunEvvTAsrWBLb6OOjuVWRNI=
 gopkg.in/yaml.v2 v2.2.2 h1:ZCJp+EgiOT7lHqUV2J862kp8Qj64Jo6az82+3Td9dZw=

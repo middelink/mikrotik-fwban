@@ -10,6 +10,7 @@ in: |-
         
         [Mikrotik "MT-1"]
           address = 1.2.3.4
+          usetls = true
           user = user
           passwd = passwd
 
@@ -29,7 +30,8 @@ out: |+
          "Mikrotik": {
              "MT-1": {
                  "Disabled": false,
-                 "Address": "1.2.3.4:8728",
+                 "UseTLS": true,
+                 "Address": "1.2.3.4:8729",
                  "User": "user",
                  "Passwd": "passwd",
                  "BanList": "blacklist"

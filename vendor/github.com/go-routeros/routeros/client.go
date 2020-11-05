@@ -12,9 +12,8 @@ import (
 	"io"
 	"net"
 	"sync"
-	"time"
 
-	"gopkg.in/routeros.v2/proto"
+	"github.com/go-routeros/routeros/proto"
 )
 
 // Client is a RouterOS API client.
@@ -49,30 +48,9 @@ func Dial(address, username, password string) (*Client, error) {
 	return newClientAndLogin(conn, address, username, password)
 }
 
-// Dial connects and logs in to a RouterOS device.
-func DialTimeout(address, username, password string, timeout time.Duration) (*Client, error) {
-	conn, err := net.DialTimeout("tcp", address, timeout)
-	if err != nil {
-		return nil, err
-	}
-	return newClientAndLogin(conn, address, username, password)
-}
-
 // DialTLS connects and logs in to a RouterOS device using TLS.
 func DialTLS(address, username, password string, tlsConfig *tls.Config) (*Client, error) {
 	conn, err := tls.Dial("tcp", address, tlsConfig)
-	if err != nil {
-		return nil, err
-	}
-	return newClientAndLogin(conn, address, username, password)
-}
-
-// DialTLSTimeout connects and logs in to a RouterOS device using TLS with timeout.
-func DialTLSTimeout(address, username, password string, tlsConfig *tls.Config, timeout time.Duration) (*Client, error) {
-	dialer := new(net.Dialer)
-	dialer.Timeout = timeout
-
-	conn, err := tls.DialWithDialer(dialer, "tcp", address, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -107,14 +85,20 @@ func (c *Client) Close() {
 
 // Login runs the /login command. Dial and DialTLS call this automatically.
 func (c *Client) Login(username, password string) error {
-	r, err := c.Run("/login")
+	r, err := c.Run("/login", "=name="+username, "=password="+password)
 	if err != nil {
 		return err
 	}
 	ret, ok := r.Done.Map["ret"]
 	if !ok {
+		// Login method post-6.43 one stage, cleartext and no challenge
+		if r.Done != nil {
+			return nil
+		}
 		return errors.New("RouterOS: /login: no ret (challenge) received")
 	}
+
+	// Login method pre-6.43 two stages, challenge
 	b, err := hex.DecodeString(ret)
 	if err != nil {
 		return fmt.Errorf("RouterOS: /login: invalid ret (challenge) hex string received: %s", err)

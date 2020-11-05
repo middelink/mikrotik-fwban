@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -11,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	ros "gopkg.in/routeros.v2"
+	ros "github.com/go-routeros/routeros"
 )
 
 var (
@@ -38,7 +39,7 @@ type BlackIP struct {
 }
 
 func (b BlackIP) String() string {
-	return fmt.Sprintf("{%s, %q, %q}", b.Net.String(), b.Dead, b.ID)
+	return fmt.Sprintf("{%s, %q, %q}", b.Net.String(), b.Dead.Format(time.RFC3339), b.ID)
 }
 
 // Mikrotik contains the internal state of a Mikrotik object, configuration
@@ -88,7 +89,13 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 	// Open the connection, use our own code for this, as we need
 	// access to it for setting deadlines.
 	var err error
-	mt.conn, err = net.DialTimeout("tcp", mt.Address, time.Minute)
+	dialer := new(net.Dialer)
+	dialer.Timeout = time.Minute
+	if c.UseTLS {
+		mt.conn, err = tls.DialWithDialer(dialer, "tcp", mt.Address, nil)
+	} else {
+		mt.conn, err = dialer.Dial("tcp", mt.Address)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -339,12 +346,15 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 // DelIP removed an ip address from the Mikrotik.
 func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
-		defer log.Printf("%s: DelIP(%s)", mt.Name, ip.String())
+		defer log.Printf("%s: DelIP(%s) finished", mt.Name, ip.String())
 	}
 	// Protect against racing DelIP/AddIPs.
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
 
+	if *debug || cfg.Settings.Verbose {
+		log.Printf("%s: DelIP(%s) started", mt.Name, ip.String())
+	}
 	selector := fmt.Sprintf("=.id=%s", ip.ID)
 	var err error
 	cancel := mt.startDeadline(5 * time.Second)
@@ -374,13 +384,16 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 // connection is stored, together with the IP itself, in the dynlist entry.
 func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error {
 	if *debug || cfg.Settings.Verbose {
-		defer log.Printf("%s: AddIP(%s/%v)", mt.Name, ip.String(), duration)
+		defer log.Printf("%s: AddIP(%s/%v) finished", mt.Name, ip.String(), duration)
 	}
 	// Protect against racing DelIP/AddIPs.
 	mt.lock.Lock()
 	defer mt.lock.Unlock()
 
-	// For permanent members skip the built-in white/blacklist checking
+	if *debug || cfg.Settings.Verbose {
+		log.Printf("%s: AddIP(%s/%v) started", mt.Name, ip.String(), duration)
+	}
+	// For permanent members skip the built-in white/blacklist checking.
 	if duration != 0 {
 		// Check if it is on the whitelist
 		for _, v := range mt.whitelist {

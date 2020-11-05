@@ -3,7 +3,7 @@ in: |
 
         [regexps]
         re = "Dummy regexp for (?P<IP>\\S+)"
-        testre = "Something not matched"
+        test-re = "Something not matched"
 
         [Mikrotik "MT-1"]
         address = 1.2.3.4
