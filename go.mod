@@ -1,5 +1,7 @@
 module github.com/middelink/mikrotik-fwban
 
+go 1.15
+
 require (
 	github.com/google/gops v0.3.5
 	github.com/howeyc/fsnotify v0.9.0
@@ -9,4 +11,5 @@ require (
 	gopkg.in/routeros.v2 v2.0.0-20171228113335-2dc19c12445c
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.2.2
+	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )

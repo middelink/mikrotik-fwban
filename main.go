@@ -22,6 +22,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -41,8 +42,10 @@ var (
 	debug         = flag.Bool("debug", false, "Be absolutely staggering in our logging.")
 	verbose       = flag.Bool("verbose", false, "Be more verbose in our logging.")
 	configchanged = flag.Bool("configchange", false, "Exit process when config file changes.")
+	hasVersion    = flag.Bool("version", false, "output version information and exit")
 
-	cfg Config
+	version = "dev"
+	cfg     Config
 )
 
 func setFlags(flags ...string) error {
@@ -61,6 +64,11 @@ func setFlags(flags ...string) error {
 
 func main() {
 	setFlags()
+	if *hasVersion {
+		fmt.Fprintf(flag.CommandLine.Output(), "mikrotik-fwban version %s %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
+		return
+	}
+
 	var err error
 	cfg, err = newConfigFile(*filename, uint16(*port), Duration(*blocktime), *autodelete, *verbose)
 	if err != nil {
