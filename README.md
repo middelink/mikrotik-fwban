@@ -5,6 +5,7 @@
 [![Build Status](https://travis-ci.org/middelink/mikrotik-fwban.svg?branch=master)](https://travis-ci.org/middelink/mikrotik-fwban)
 [![Coverage Status](https://coveralls.io/repos/github/middelink/mikrotik-fwban/badge.svg?branch=master)](https://coveralls.io/github/middelink/mikrotik-fwban?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/middelink/mikrotik-fwban)](https://goreportcard.com/report/github.com/middelink/mikrotik-fwban)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmiddelink%2Fmikrotik-fwban.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmiddelink%2Fmikrotik-fwban?ref=badge_shield)
 
 ## TL;DR
 
@@ -111,3 +112,7 @@ Mikrotik-fwban uses
 [go-gcfg](https://github.com/go-gcfg/gcfg/tree/v1),
 [syslogparser](github.com/jeromer/syslogparser),
 [routeros](https://github.com/go-routeros/routeros/tree/master)
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmiddelink%2Fmikrotik-fwban.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmiddelink%2Fmikrotik-fwban?ref=badge_large)
