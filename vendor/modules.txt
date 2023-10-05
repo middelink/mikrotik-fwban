@@ -1,23 +1,26 @@
-# github.com/go-routeros/routeros v0.0.0-20190727190637-9419d2537732
+# github.com/go-routeros/routeros v0.0.0-20210123142807-2a44d57c6730
 ## explicit
 github.com/go-routeros/routeros
 github.com/go-routeros/routeros/proto
-# github.com/google/gops v0.3.5
-## explicit
+# github.com/google/gops v0.3.28
+## explicit; go 1.17
 github.com/google/gops/agent
 github.com/google/gops/internal
 github.com/google/gops/signal
 # github.com/howeyc/fsnotify v0.9.0
 ## explicit
 github.com/howeyc/fsnotify
-# github.com/jeromer/syslogparser v0.0.0-20180622150051-323c7ad120db
-## explicit
+# github.com/jeromer/syslogparser v1.1.0
+## explicit; go 1.14
 github.com/jeromer/syslogparser
+github.com/jeromer/syslogparser/parsercommon
 github.com/jeromer/syslogparser/rfc3164
 github.com/jeromer/syslogparser/rfc5424
-# github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
-## explicit
-github.com/kardianos/osext
+# github.com/stretchr/testify v1.8.4
+## explicit; go 1.20
+# golang.org/x/sys v0.12.0
+## explicit; go 1.17
+golang.org/x/sys/unix
 # gopkg.in/gcfg.v1 v1.2.3
 ## explicit
 gopkg.in/gcfg.v1
@@ -30,5 +33,3 @@ gopkg.in/warnings.v0
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# launchpad.net/gocheck v0.0.0-20140225173054-000000000087
-## explicit
