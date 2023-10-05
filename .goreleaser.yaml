@@ -1,0 +1,87 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+
+# The lines bellow are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/need to use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+before:
+  hooks:
+    # make sure all modules are there
+    - go mod download
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+    # you may remove this if you don't need go generate
+    - go generate ./...
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+
+    flags:
+      # don't include any paths to source files in the resulting binary
+      - -trimpath
+
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+    ldflags:
+      # set the version variable in the main package
+      - "-s -w -X main.version={{ .Version }}"
+
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - 386
+      - arm
+      - arm64
+    goarm:
+      - 6
+      - 7
+
+archives:
+  - format: tar.gz
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+    # use zip for windows archives
+    format_overrides:
+      - goos: windows
+        format: zip
+
+    builds_info: &archive_file_info
+      owner: root
+      group: root
+      mtime: "{{ .CommitDate }}"
+      mode: 0644
+
+    # add these files to all archives
+    files:
+      - src: LICENSE
+        info: *archive_file_info
+      - src: README.md
+        info: *archive_file_info
+      - src: mikrotik-fwban.cfg
+        info: *archive_file_info
+      - src: mikrotik-fwban.service
+        info: *archive_file_info
+
+# build a file containing the SHA256 hashes
+checksum:
+  name_template: 'SHA256SUMS'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
