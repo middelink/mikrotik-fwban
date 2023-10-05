@@ -119,10 +119,12 @@ func (c *Config) setupREs() error {
 			return err
 		}
 		index := -1
-		for i, v := range re.SubexpNames() {
-			if v == "IP" {
+		for i, val := range re.SubexpNames() {
+			if val == "IP" {
+				if index >= 0 {
+					return fmt.Errorf("multiple named groups `IP` in regexp %q", v)
+				}
 				index = i
-				break
 			}
 		}
 		c.re = append(c.re, regexps{re, index})
@@ -135,6 +137,9 @@ func (c *Config) setupREs() error {
 		found := false
 		for _, re := range c.re {
 			if res := re.RE.FindStringSubmatch(v); len(res) > 0 {
+				if ip := parseCIDR(res[re.IPIndex], cfg.Settings.Verbose); ip == nil {
+					return fmt.Errorf("unable to parse IP from test_re %q", res[re.IPIndex])
+				}
 				found = true
 				break
 			}

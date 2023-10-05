@@ -1,0 +1,13 @@
+in: |-
+        [settings]
+
+        [regexps]
+         re = "Dummy regexp for (?P<TEST_IP>\\S+)"
+
+        [Mikrotik "MT-1"]
+          address = 1.2.3.4
+          user = user
+          passwd = passwd
+
+err:
+        - 'missing named group `IP` in regexp "Dummy regexp for (?P<TEST_IP>\\S+)"'

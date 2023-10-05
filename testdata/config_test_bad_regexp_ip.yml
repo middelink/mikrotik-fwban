@@ -2,7 +2,8 @@ in: |-
         [settings]
 
         [regexps]
-         re = "Dummy regexp for (?P<TEST_IP>\\S+)"
+         re = "Dummy regexp for \\[(?P<IP>[a-f0-9:]+|[0-9.]+)\\]"
+         test-re = "Dummy regexp for [1.2.3.999]"
 
         [Mikrotik "MT-1"]
           address = 1.2.3.4
@@ -10,4 +11,4 @@ in: |-
           passwd = passwd
 
 err:
-        - 'missing named group `IP` in regexp "Dummy regexp for (?P<TEST_IP>\\S+)"'
+        - 'unable to parse IP from test_re "1.2.3.999"'

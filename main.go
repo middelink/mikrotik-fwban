@@ -190,6 +190,8 @@ func main() {
 							continue
 						}
 					}
+				} else {
+					log.Printf("Unable to parse ip from %q (idx=%v)\n", res[re.IPIndex], re.IPIndex)
 				}
 				break
 			}
