@@ -21,10 +21,8 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/signal"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/google/gops/agent"
@@ -139,18 +137,7 @@ func main() {
 		}
 	}
 
-	sigs := make(chan os.Signal, 1)
-	go func() {
-		for range sigs {
-			log.Printf("Got signal, dumping dynlists")
-			for _, mt := range mts {
-				for i, ip := range mt.GetIPs() {
-					log.Printf("%s(%d): %s\n", mt.Name, i, ip)
-				}
-			}
-		}
-	}()
-	signal.Notify(sigs, syscall.SIGUSR1)
+	DumpDynList(mts)
 
 	// Start listening to the socket for syslog messages.
 	listener, err := net.ListenPacket("udp", fmt.Sprintf(":%d", cfg.Settings.Port))
