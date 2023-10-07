@@ -11,4 +11,4 @@ in: |-
           passwd = passwd
 
 err:
-        - 'unable to parse IP from test_re "1.2.3.999"'
+        - 'unable to parse IP from test-re "1.2.3.999"'

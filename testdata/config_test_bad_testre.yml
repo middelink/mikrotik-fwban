@@ -11,4 +11,4 @@ in: |
         passwd = passwd
 
 err:
-        - 'test_re failed to match any re "Something not matched"'
+        - 'test-re failed to match any re "Something not matched"'

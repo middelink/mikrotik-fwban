@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"testing"
@@ -29,7 +29,7 @@ func TestFlagOverride(t *testing.T) {
 		{"AllFlags", "-blocktime=16h -autodelete -verbose -port=5678", Duration(16 * time.Hour), true, true, 5678}}
 
 	for _, d := range data {
-		setFlags(strings.Split(d.Override, " ")...)
+		_ = setFlags(strings.Split(d.Override, " ")...)
 		t.Run(d.Name, func(t *testing.T) {
 			var cfg Config
 			cfg.mergeFlags(uint16(*port), Duration(*blocktime), *autodelete, *verbose)
@@ -47,16 +47,16 @@ func TestFlagOverride(t *testing.T) {
 			}
 		})
 	}
-	setFlags()
+	_ = setFlags()
 }
 
 func TestReadConfig(t *testing.T) {
-	files, err := ioutil.ReadDir("testdata")
+	files, err := os.ReadDir("testdata")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, file := range files {
-		if !file.Mode().IsRegular() || !strings.HasSuffix(file.Name(), ".yml") {
+		if !file.Type().IsRegular() || !strings.HasSuffix(file.Name(), ".yml") {
 			continue
 		}
 		t.Run(strings.TrimSuffix(file.Name(), ".yml"), func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestReadConfig(t *testing.T) {
 				Err []string
 			}
 			fname := path.Join("testdata", file.Name())
-			data, err := ioutil.ReadFile(fname)
+			data, err := os.ReadFile(fname)
 			if err != nil {
 				t.Fatal(err)
 			}

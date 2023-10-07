@@ -52,7 +52,7 @@ func setFlags(flags ...string) error {
 		// Make sure not to touch the test.* flags as that will inhibit any profiling.
 		flag.VisitAll(func(flg *flag.Flag) {
 			if !strings.HasPrefix(flg.Name, "test.") {
-				flg.Value.Set(flg.DefValue)
+				_ = flg.Value.Set(flg.DefValue)
 			}
 		})
 		return flag.CommandLine.Parse(flags)
@@ -61,7 +61,9 @@ func setFlags(flags ...string) error {
 }
 
 func main() {
-	setFlags()
+	if err := setFlags(); err != nil {
+		log.Fatal(err)
+	}
 	if *hasVersion {
 		fmt.Fprintf(flag.CommandLine.Output(), "mikrotik-fwban version %s %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
 		return
@@ -132,7 +134,7 @@ func main() {
 				}
 			}
 			if !found {
-				mt.AddIP(ip.Net, Duration(ip.Dead.Sub(time.Now())), "")
+				_ = mt.AddIP(ip.Net, Duration(time.Until(ip.Dead)), "")
 			}
 		}
 	}

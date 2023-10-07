@@ -68,8 +68,8 @@ type Mikrotik struct {
 // Setup a deadline on the connection to the Mikrotik. It returns a cancel
 // function, resetting the idle deadline on the connection.
 func (mt *Mikrotik) startDeadline(duration time.Duration) func() {
-	mt.conn.SetDeadline(time.Now().Add(duration))
-	return func() { mt.conn.SetDeadline(time.Time{}) }
+	_ = mt.conn.SetDeadline(time.Now().Add(duration))
+	return func() { _ = mt.conn.SetDeadline(time.Time{}) }
 }
 
 // NewMikrotik returns an initialized Mikrotik object.

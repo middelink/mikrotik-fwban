@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -36,8 +36,8 @@ type Config struct {
 		Port       uint16
 	}
 	RegExps struct {
-		RE      []string `json:",omitempty"`
-		Test_RE []string `json:",omitempty"`
+		RE     []string `json:",omitempty"`
+		TestRE []string `json:"test-re,omitempty" gcfg:"test-re"`
 	}
 	re       []regexps
 	Mikrotik map[string]*ConfigMikrotik `json:",omitempty"`
@@ -133,19 +133,19 @@ func (c *Config) setupREs() error {
 		}
 	}
 
-	for _, v := range c.RegExps.Test_RE {
+	for _, v := range c.RegExps.TestRE {
 		found := false
 		for _, re := range c.re {
 			if res := re.RE.FindStringSubmatch(v); len(res) > 0 {
 				if ip := parseCIDR(res[re.IPIndex], cfg.Settings.Verbose); ip == nil {
-					return fmt.Errorf("unable to parse IP from test_re %q", res[re.IPIndex])
+					return fmt.Errorf("unable to parse IP from test-re %q", res[re.IPIndex])
 				}
 				found = true
 				break
 			}
 		}
 		if !found {
-			return fmt.Errorf("test_re failed to match any re %q", v)
+			return fmt.Errorf("test-re failed to match any re %q", v)
 		}
 	}
 
@@ -169,7 +169,7 @@ func newConfigString(data string, port uint16, blocktime Duration, autodelete, v
 }
 
 func newConfigFile(path string, port uint16, blocktime Duration, autodelete, verbose bool) (Config, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, err
 	}
