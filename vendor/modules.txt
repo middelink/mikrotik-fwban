@@ -1,4 +1,4 @@
-# github.com/go-routeros/routeros/v3 v3.0.0
+# github.com/go-routeros/routeros/v3 v3.0.1
 ## explicit; go 1.21
 github.com/go-routeros/routeros/v3
 github.com/go-routeros/routeros/v3/proto

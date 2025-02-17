@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.23.0
 
 require (
-	github.com/go-routeros/routeros/v3 v3.0.0
+	github.com/go-routeros/routeros/v3 v3.0.1
 	github.com/google/gops v0.3.28
 	github.com/howeyc/fsnotify v0.9.0
 	github.com/jeromer/syslogparser v1.1.0
