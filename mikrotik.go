@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crypto/tls"
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -46,7 +46,6 @@ func (b BlackIP) String() string {
 // details but also the API connection to the Mikrotik. It acts as a cache
 // between the rest of the program and the Mikrotik.
 type Mikrotik struct {
-	conn   net.Conn
 	client *ros.Client
 	lock   sync.Mutex // protect AddIP/DelIP racing against AutoDelete.
 
@@ -65,15 +64,8 @@ type Mikrotik struct {
 	whitelist    []BlackIP
 }
 
-// Setup a deadline on the connection to the Mikrotik. It returns a cancel
-// function, resetting the idle deadline on the connection.
-func (mt *Mikrotik) startDeadline(duration time.Duration) func() {
-	_ = mt.conn.SetDeadline(time.Now().Add(duration))
-	return func() { _ = mt.conn.SetDeadline(time.Time{}) }
-}
-
 // NewMikrotik returns an initialized Mikrotik object.
-func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
+func NewMikrotik(ctx context.Context, name string, c *ConfigMikrotik) (*Mikrotik, func(context.Context) error, error) {
 	if *debug {
 		log.Printf("NewMikrotik(name=%s, %#v)\n", name, c)
 	} else if cfg.Settings.Verbose {
@@ -86,36 +78,28 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		Passwd:  c.Passwd,
 		banlist: c.BanList,
 	}
-	// Open the connection, use our own code for this, as we need
-	// access to it for setting deadlines.
 	var err error
-	dialer := new(net.Dialer)
-	dialer.Timeout = time.Minute
+	dialctx, cancel := context.WithTimeout(ctx, time.Minute)
 	if c.UseTLS {
-		mt.conn, err = tls.DialWithDialer(dialer, "tcp", mt.Address, nil)
+		mt.client, err = ros.DialTLSContext(dialctx, mt.Address, mt.User, mt.Passwd, nil)
 	} else {
-		mt.conn, err = dialer.Dial("tcp", mt.Address)
+		mt.client, err = ros.DialContext(dialctx, mt.Address, mt.User, mt.Passwd)
 	}
-	if err != nil {
-		return nil, err
-	}
-	mt.client, err = ros.NewClient(mt.conn)
-	if err != nil {
-		mt.conn.Close()
-		return nil, err
-	}
-
-	cancel := mt.startDeadline(5 * time.Second)
-	err = mt.client.Login(mt.User, mt.Passwd)
 	cancel()
 	if err != nil {
-		mt.client.Close()
-		return nil, err
+		return nil, nil, err
 	}
+	defer func() {
+		if err != nil {
+			cerr := mt.client.Close()
+			if cerr != nil {
+				err = fmt.Errorf("error closing object: %w, original error: %w", cerr, err)
+			}
+		}
+	}()
 
-	if err := mt.populateBanlist(c.Whitelist, c.Blacklist); err != nil {
-		mt.client.Close()
-		return nil, err
+	if err := mt.populateBanlist(ctx, c.Whitelist, c.Blacklist); err != nil {
+		return nil, nil, err
 	}
 
 	if cfg.Settings.AutoDelete {
@@ -123,19 +107,19 @@ func NewMikrotik(name string, c *ConfigMikrotik) (*Mikrotik, error) {
 		// It effectively implements a priority queue on the Dead time.
 		// From now on we need locking if we mess with the dynlist.
 		mt.hasData = make(chan struct{})
-		go mt.autoDelete()
+		go mt.autoDelete(ctx)
 	}
-	return mt, nil
+	return mt, func(ctx context.Context) error { return mt.client.Close() }, nil
 }
 
-func (mt *Mikrotik) populateBanlist(whitelist, blacklist []string) error {
+func (mt *Mikrotik) populateBanlist(ctx context.Context, whitelist, blacklist []string) error {
 	// Setup the whitelist.
 	for _, v := range whitelist {
 		if strings.HasPrefix(v, "@") {
 			if v[1:] == mt.banlist {
-				log.Printf("%s: Skipping the managed blacklist %s", mt.Name, v)
+				log.Printf("%s: Skipping the managed banlist %s", mt.Name, v)
 			} else {
-				mt.whitelist = append(mt.whitelist, mt.getAddresslist(v[1:])...)
+				mt.whitelist = append(mt.whitelist, mt.getAddresslist(ctx, v[1:])...)
 			}
 		} else if ip := parseCIDR(v, cfg.Settings.Verbose); ip != nil {
 			mt.whitelist = append(mt.whitelist, BlackIP{*ip, time.Time{}, ".gcfg"})
@@ -147,9 +131,9 @@ func (mt *Mikrotik) populateBanlist(whitelist, blacklist []string) error {
 	for _, v := range blacklist {
 		if strings.HasPrefix(v, "@") {
 			if v[1:] == mt.banlist {
-				log.Printf("%s: Skipping the managed blacklist %s", mt.Name, v)
+				log.Printf("%s: Skipping the managed banlist %s", mt.Name, v)
 			} else {
-				mt.blacklist = append(mt.blacklist, mt.getAddresslist(v[1:])...)
+				mt.blacklist = append(mt.blacklist, mt.getAddresslist(ctx, v[1:])...)
 			}
 		} else if ip := parseCIDR(v, cfg.Settings.Verbose); ip != nil {
 			mt.blacklist = append(mt.blacklist, BlackIP{*ip, time.Time{}, ".gcfg"})
@@ -173,12 +157,12 @@ func (mt *Mikrotik) populateBanlist(whitelist, blacklist []string) error {
 
 	// Now check every entry from the managed dynlist.
 addresslist:
-	for _, v := range mt.getAddresslist(mt.banlist) {
+	for _, v := range mt.getAddresslist(ctx, mt.banlist) {
 		// Whitelisted entries should never be on the banlist.
 		for _, w := range mt.whitelist {
 			if w.Net.Contains(v.Net.IP) {
 				log.Printf("%s(%s): Deleting whitelisted entry %s", mt.Name, mt.banlist, v.Net.String())
-				if err := mt.DelIP(v); err != nil {
+				if err := mt.DelIP(ctx, v); err != nil {
 					return err
 				}
 				// No use checking the rest, it's dead Jim.
@@ -193,7 +177,7 @@ addresslist:
 			} else {
 				// Remove this permanent entry as it is not on permanent blacklist.
 				log.Printf("%s: Deleting unwanted permanent blacklist entry %s", mt.Name, v.Net.String())
-				if err := mt.DelIP(v); err != nil {
+				if err := mt.DelIP(ctx, v); err != nil {
 					return err
 				}
 			}
@@ -203,7 +187,7 @@ addresslist:
 				// Remove this dynamic entry as it is on the permanent blacklist.
 				// It will be added back later as a permanent entry.
 				log.Printf("%s: Deleting unwanted dynamic blacklist entry %s", mt.Name, v.Net.String())
-				if err := mt.DelIP(v); err != nil {
+				if err := mt.DelIP(ctx, v); err != nil {
 					return err
 				}
 			} else {
@@ -214,7 +198,7 @@ addresslist:
 	}
 	// Add the remaining (missing) permanent blacklist entries.
 	for _, v := range blackmap {
-		if err := mt.AddIP(v.Net, 0, ""); err != nil {
+		if err := mt.AddIP(ctx, v.Net, 0, ""); err != nil {
 			return err
 		}
 	}
@@ -222,7 +206,7 @@ addresslist:
 	return nil
 }
 
-func (mt *Mikrotik) autoDelete() {
+func (mt *Mikrotik) autoDelete(ctx context.Context) {
 	var oldest time.Time
 	var oldestEntry *BlackIP
 	for {
@@ -252,13 +236,12 @@ func (mt *Mikrotik) autoDelete() {
 			if *debug {
 				log.Printf("%s: Received new data indication", mt.Name)
 			}
-			break
 		case <-time.After(time.Until(oldest)):
 			if oldestEntry != nil {
 				if *debug {
 					log.Printf("%s: Deleting oldest dynlist entry", mt.Name)
 				}
-				if err := mt.DelIP(*oldestEntry); err != nil {
+				if err := mt.DelIP(ctx, *oldestEntry); err != nil {
 					log.Fatalln(mt.Name, err)
 				}
 			}
@@ -304,12 +287,12 @@ func (mt *Mikrotik) toDuration(mapname string, dict map[string]string) time.Time
 	return time.Time{} // permanent entry.
 }
 
-func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
+func (mt *Mikrotik) getAddresslist(ctx context.Context, mapname string) []BlackIP {
 	var ips []BlackIP
 
-	cancel := mt.startDeadline(5 * time.Second)
 	list := fmt.Sprintf("?list=%s", mapname)
-	reply, err := mt.client.Run("/ip/firewall/address-list/getall", list)
+	rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	reply, err := mt.client.RunContext(rctx, "/ip/firewall/address-list/getall", list)
 	cancel()
 	if err != nil {
 		log.Fatalln(err)
@@ -321,8 +304,8 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 			ips = append(ips, BlackIP{*ip, duration, re.Map[".id"]})
 		}
 	}
-	cancel = mt.startDeadline(5 * time.Second)
-	reply, err = mt.client.Run("/ipv6/firewall/address-list/getall", list)
+	rctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	reply, err = mt.client.RunContext(rctx, "/ipv6/firewall/address-list/getall", list)
 	cancel()
 	if err != nil {
 		log.Fatalln(err)
@@ -344,7 +327,7 @@ func (mt *Mikrotik) getAddresslist(mapname string) []BlackIP {
 }
 
 // DelIP removed an ip address from the Mikrotik.
-func (mt *Mikrotik) DelIP(ip BlackIP) error {
+func (mt *Mikrotik) DelIP(ctx context.Context, ip BlackIP) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: DelIP(%s) finished", mt.Name, ip.String())
 	}
@@ -357,11 +340,11 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 	}
 	selector := fmt.Sprintf("=.id=%s", ip.ID)
 	var err error
-	cancel := mt.startDeadline(5 * time.Second)
+	rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	if ip.Net.IP.To4() != nil {
-		_, err = mt.client.Run("/ip/firewall/address-list/remove", selector)
+		_, err = mt.client.RunContext(rctx, "/ip/firewall/address-list/remove", selector)
 	} else {
-		_, err = mt.client.Run("/ipv6/firewall/address-list/remove", selector)
+		_, err = mt.client.RunContext(rctx, "/ipv6/firewall/address-list/remove", selector)
 	}
 	cancel()
 	if err == nil && cfg.Settings.AutoDelete {
@@ -382,7 +365,7 @@ func (mt *Mikrotik) DelIP(ip BlackIP) error {
 // spit out an error which in the current implementation leads to a program
 // restart. For all timeouts != 0, the index returned over the Mikrotik
 // connection is stored, together with the IP itself, in the dynlist entry.
-func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error {
+func (mt *Mikrotik) AddIP(ctx context.Context, ip net.IPNet, duration Duration, comment string) error {
 	if *debug || cfg.Settings.Verbose {
 		defer log.Printf("%s: AddIP(%s/%v) finished", mt.Name, ip.String(), duration)
 	}
@@ -435,10 +418,8 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 	if comment != "" {
 		args = append(args, fmt.Sprintf("=comment=%s", comment))
 	}
-	cancel := mt.startDeadline(5 * time.Second)
-	var err error
-	var reply *ros.Reply
-	reply, err = mt.client.RunArgs(args)
+	rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	reply, err := mt.client.RunArgsContext(rctx, args)
 	cancel()
 	if err != nil {
 		if strings.Contains(err.Error(), "already have") {
@@ -468,12 +449,6 @@ func (mt *Mikrotik) AddIP(ip net.IPNet, duration Duration, comment string) error
 		}
 	}
 	return nil
-}
-
-// Close closes the session with the mikrotik.
-func (mt *Mikrotik) Close() {
-	close(mt.hasData)
-	mt.client.Close()
 }
 
 // GetIPs returns the current list of blacklisted IPs.

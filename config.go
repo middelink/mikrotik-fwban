@@ -73,7 +73,7 @@ func (c *Config) setupDefaults() error {
 		return fmt.Errorf("need at least one valid regexp")
 	}
 
-	var hasValid bool
+	var hasActiveConfig bool
 	for k, v := range c.Mikrotik {
 		if v.Disabled {
 			continue
@@ -104,10 +104,10 @@ func (c *Config) setupDefaults() error {
 		if v.BanList == "" {
 			v.BanList = "blacklist"
 		}
-		hasValid = true
+		hasActiveConfig = true
 	}
-	if !hasValid {
-		return fmt.Errorf("need at least one valid Mikrotik configuration")
+	if !hasActiveConfig {
+		return fmt.Errorf("need at least one active Mikrotik configuration")
 	}
 	return nil
 }

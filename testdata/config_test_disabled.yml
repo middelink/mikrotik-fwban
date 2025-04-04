@@ -11,4 +11,4 @@ in: |-
           passwd = passwd
 
 err:
-        - 'need at least one valid Mikrotik configuration'
+        - 'need at least one active Mikrotik configuration'

@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -65,7 +66,7 @@ func main() {
 		log.Fatal(err)
 	}
 	if *hasVersion {
-		fmt.Fprintf(flag.CommandLine.Output(), "mikrotik-fwban version %s %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "mikrotik-fwban version %s %s/%s\n", version, runtime.GOOS, runtime.GOARCH)
 		return
 	}
 
@@ -104,16 +105,21 @@ func main() {
 	// IPs they all have.
 	var mts []*Mikrotik
 	mergeIP := make(map[string]BlackIP)
+	ctx := context.Background()
 	for k, v := range cfg.Mikrotik {
 		if v.Disabled {
 			log.Printf("%s: definition disabled, skipping\n", k)
 			continue
 		}
-		mt, err := NewMikrotik(k, v)
+		mt, closer, err := NewMikrotik(ctx, k, v)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		defer mt.Close()
+		defer func() {
+			if err := closer(ctx); err != nil {
+				log.Fatalf("Unable to close Mikrotik session: %v", err)
+			}
+		}()
 		for _, ip := range mt.GetIPs() {
 			if _, ok := mergeIP[ip.Net.String()]; !ok {
 				mergeIP[ip.Net.String()] = ip
@@ -122,7 +128,7 @@ func main() {
 		mts = append(mts, mt)
 	}
 
-	// Distribute the missing dynamic IPs to the mikrotiks.
+	// Distribute the missing dynamic IPs to all mikrotiks.
 	for _, mt := range mts {
 		ips := mt.GetIPs()
 		for k, ip := range mergeIP {
@@ -134,7 +140,7 @@ func main() {
 				}
 			}
 			if !found {
-				_ = mt.AddIP(ip.Net, Duration(time.Until(ip.Dead)), "")
+				_ = mt.AddIP(ctx, ip.Net, Duration(time.Until(ip.Dead)), "")
 			}
 		}
 	}
@@ -174,7 +180,7 @@ func main() {
 				}
 				if ip := parseCIDR(res[re.IPIndex], cfg.Settings.Verbose); ip != nil {
 					for _, mt := range mts {
-						if err = mt.AddIP(*ip, cfg.Settings.BlockTime, text); err != nil {
+						if err = mt.AddIP(ctx, *ip, cfg.Settings.BlockTime, text); err != nil {
 							log.Fatalln(err)
 							continue
 						}
