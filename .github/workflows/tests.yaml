@@ -13,16 +13,15 @@ permissions:
 
 jobs:
   test:
-    name: Go test
     runs-on: ubuntu-latest
     steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-
-      - name: Check out code
-        uses: actions/checkout@v4
 
       - name: Build
         run: |
@@ -35,16 +34,15 @@ jobs:
           go test ./...
 
   lint:
-    name: lint
     runs-on: ubuntu-latest
     steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-
-      - name: Check out code
-        uses: actions/checkout@v4
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
