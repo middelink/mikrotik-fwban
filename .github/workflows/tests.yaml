@@ -11,20 +11,15 @@ permissions:
   # Optional: allow read access to pull request. Use with `only-new-issues` option.
   # pull-requests: read
 
-env:
-  latest_go: "1.23.x"
-  GO111MODULE: on
-  GOPROXY: https://proxy.golang.org
-
 jobs:
   test:
     name: Go test
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go ${{ env.latest_go }}
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.latest_go }}
+          go-version-file: 'go.mod'
 
       - name: Check out code
         uses: actions/checkout@v4
@@ -43,10 +38,10 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go ${{ env.latest_go }}
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.latest_go }}
+          go-version-file: 'go.mod'
 
       - name: Check out code
         uses: actions/checkout@v4
