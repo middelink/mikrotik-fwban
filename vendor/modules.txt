@@ -2,8 +2,8 @@
 ## explicit; go 1.21
 github.com/go-routeros/routeros/v3
 github.com/go-routeros/routeros/v3/proto
-# github.com/google/gops v0.3.28
-## explicit; go 1.17
+# github.com/google/gops v0.3.29
+## explicit; go 1.18
 github.com/google/gops/agent
 github.com/google/gops/internal
 github.com/google/gops/signal
@@ -16,8 +16,8 @@ github.com/jeromer/syslogparser
 github.com/jeromer/syslogparser/parsercommon
 github.com/jeromer/syslogparser/rfc3164
 github.com/jeromer/syslogparser/rfc5424
-# golang.org/x/sys v0.12.0
-## explicit; go 1.17
+# golang.org/x/sys v0.30.0
+## explicit; go 1.18
 golang.org/x/sys/unix
 # gopkg.in/gcfg.v1 v1.2.3
 ## explicit
